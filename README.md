@@ -9,7 +9,7 @@
 - does not need to compute sliding window for every pixel due to pixel-to-ordinal mapping and effective resetting of only 2k+1 bits inside the sliding window
 
 ### Potential speed-up improvements: 
-- Exploit use of vector registers
+- Use of vector registers
 - Implementation of vertical sliding-window scanning scheme, instead of horizontal, may improve memory access pattern
 - Median does not have to be recalculated everytime sliding window moves to the next pixel
 

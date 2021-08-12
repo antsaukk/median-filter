@@ -75,13 +75,13 @@ void mf(int ny, int nx, int hy, int hx, const float *in, float *out) {
                 }
             }
 
-    		//sort pixels
-    		std::sort(block_pixels, block_pixels + localIndex);
+            //sort pixels
+            std::sort(block_pixels, block_pixels + localIndex);
 
-    		// compute ordinals
-    		for (int i = 0; i < localIndex; i++) {
+            // compute ordinals
+            for (int i = 0; i < localIndex; i++) {
                 ordinals[block_pixels[i].second] = i;
-    		}
+            }
 
             //size of bitvector
             int sz = x_range*y_range;

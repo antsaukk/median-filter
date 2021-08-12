@@ -29,13 +29,13 @@ inline uint64_t getNthBit(int N, uint64_t mask){
 */
 void mf(int ny, int nx, int hy, int hx, const float *in, float *out) {
 
-	// 1 PARTITIIONING
+    // 1 PARTITIIONING
     constexpr int factor = 2;
 
     int kernelX = hx * factor;
     int kernelY = hy * factor;
 
-	// 1.1 compute block size based on window size
+    // 1.1 compute block size based on window size
     int blockside = factor * std::max(kernelX, kernelY);
     int blocksize = blockside * blockside;
 
@@ -53,7 +53,7 @@ void mf(int ny, int nx, int hy, int hx, const float *in, float *out) {
 
             std::pair<float, int> *block_pixels; 
             block_pixels = new std::pair<float, int>[blocksize];
-    		std::vector<int> ordinals(blocksize);
+            std::vector<int> ordinals(blocksize);
 
             // coordinates inside the block on the pixel map
             int y0block = iy * strideY; //y-starting coordinate of the block on image
@@ -68,19 +68,19 @@ void mf(int ny, int nx, int hy, int hx, const float *in, float *out) {
             // collect pixels into containers
             int localIndex = 0; // container index
     		for (int y = 0; y < y_range; y++) {
-    			for (int x = 0; x < x_range; x++) {
-    				int globalIndex = x + x0block + (y + y0block) * nx; // index of the pixel on image / global index
-    				block_pixels[localIndex] = std::make_pair(in[globalIndex], localIndex);
+                for (int x = 0; x < x_range; x++) {
+                    int globalIndex = x + x0block + (y + y0block) * nx; // index of the pixel on image / global index
+                    block_pixels[localIndex] = std::make_pair(in[globalIndex], localIndex);
                     localIndex++;
-    			}
-    		}
+                }
+            }
 
     		//sort pixels
     		std::sort(block_pixels, block_pixels + localIndex);
 
     		// compute ordinals
     		for (int i = 0; i < localIndex; i++) {
-    			ordinals[block_pixels[i].second] = i;
+                ordinals[block_pixels[i].second] = i;
     		}
 
             //size of bitvector
@@ -183,7 +183,7 @@ void mf(int ny, int nx, int hy, int hx, const float *in, float *out) {
                         int N1 = std::abs(remainder); 
                         int ord1 = (d-1) * DIV + (DIV - getNthBit(N1, bitvector[d-1]));
                         remainder = position2;
-                        d = 0; 
+                        d = 0;
                         while(remainder > 0) {
                             int bb = countbits(bitvector[d]);
                             remainder -= bb; 

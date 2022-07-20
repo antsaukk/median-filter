@@ -52,6 +52,16 @@ struct ImageSubBlock {
         assert(strideSizeY != 0);
         assert(bsny != 0);
         assert(bsnx != 0);
+        std::cout << SWlength << " \n";
+        std::cout << SWheight << " \n";
+        std::cout << kernelSizeY << " \n";
+        std::cout << kernelSizeX << " \n";
+        std::cout << blockside << " \n";
+        std::cout << blocksize << " \n";
+        std::cout << strideSizeX << " \n";
+        std::cout << strideSizeY << " \n";
+        std::cout << bsny << " \n";
+        std::cout << bsnx << " \n";
     }
 
     inline const T GetSWlength()    const { return SWlength; }

@@ -24,7 +24,10 @@ inline uint64_t getNthBit(int N, uint64_t mask){
 
 template <typename T>
 struct ImageSubBlock {
-    explicit ImageSubBlock(T NX, T NY, T hx, T hy) : 
+    explicit ImageSubBlock(const T NX, const T NY, const T hx, const T hy) :
+
+    imageSizeX(NX),
+    imageSizeY(NY),
 
     SWlength(hx),
     SWheight(hy),
@@ -35,34 +38,16 @@ struct ImageSubBlock {
     blockside(CalculateSizeOfBlockSide()),
     blocksize(blockside * blockside),
 
-    strideSizeX(kernelSizeX),
-    strideSizeY(kernelSizeY),
+    strideSizeX(CalculateSizeOfStride(kernelSizeX)),
+    strideSizeY(CalculateSizeOfStride(kernelSizeY)),
 
     bsnx(CalculateBlockSizeN(NX, kernelSizeX, strideSizeX)),
     bsny(CalculateBlockSizeN(NY, kernelSizeY, strideSizeY))
 
-    {
-        assert(SWlength != 0);
-        assert(SWheight != 0);
-        assert(kernelSizeY != 0);
-        assert(kernelSizeX != 0);
-        assert(blockside != 0);
-        assert(blocksize != 0);
-        assert(strideSizeX != 0);
-        assert(strideSizeY != 0);
-        assert(bsny != 0);
-        assert(bsnx != 0);
-        std::cout << SWlength << " \n";
-        std::cout << SWheight << " \n";
-        std::cout << kernelSizeY << " \n";
-        std::cout << kernelSizeX << " \n";
-        std::cout << blockside << " \n";
-        std::cout << blocksize << " \n";
-        std::cout << strideSizeX << " \n";
-        std::cout << strideSizeY << " \n";
-        std::cout << bsny << " \n";
-        std::cout << bsnx << " \n";
-    }
+    {}
+
+    inline const T GetImageX()      const { return imageSizeX; }
+    inline const T GetImageY()      const { return imageSizeY; }
 
     inline const T GetSWlength()    const { return SWlength; }
     inline const T GetSWheight()    const { return SWheight; }
@@ -93,6 +78,9 @@ private:
         return blockside < N ? (N - kernelSize + strideSize - 1) / strideSize : 1;
     }
 
+    const T imageSizeX;
+    const T imageSizeY;
+
     const T SWlength;
     const T SWheight;
 
@@ -111,6 +99,41 @@ private:
 
 };
 
+template <typename T>
+struct BlockCoordinates {
+    explicit BlockCoordinates(const ImageSubBlock<T>& Block, const int iy, const int ix) : 
+    y0(ComputeOriginCoordinates(Block.GetStrideSizeY(), iy)),
+    x0(ComputeOriginCoordinates(Block.GetStrideSizeX(), ix)),
+
+    y1(ComputeUpperCoordinates(Block.GetImageY(), y0, Block.GetStrideSizeY(), Block.GetKernelSizeY())),
+    x1(ComputeUpperCoordinates(Block.GetImageX(), x0, Block.GetStrideSizeX(), Block.GetKernelSizeX()))
+
+    {}
+
+    // const
+    inline int GetY0() const { return y0; }
+    inline int GetY1() const { return y1; }
+    inline int GetX0() const { return x0; }
+    inline int GetX1() const { return x1; }
+
+    inline int GetRangeX() const { return x1 - x0; }
+    inline int GetRangeY() const { return y1 - y0; }
+
+private:
+    inline int ComputeOriginCoordinates(const int stride, const int index) {
+        return stride * index;
+    }
+
+    inline int ComputeUpperCoordinates(const int n, const int start, const int stride, const int kernel) {
+        return std::min(n, start + kernel + stride);
+    }
+
+    const int y0;
+    const int x0;
+    const int y1;
+    const int x1;
+};
+
 /* 
 (ny, nx) size of the image 
 (hy, hx) size of sliding window
@@ -119,52 +142,27 @@ private:
 */
 void mf(int ny, int nx, int hy, int hx, const float *in, float *out) {
 
-    // 1 PARTITIIONING
-    /*constexpr int factor = 2;
+    // 1 Partition the image into blocks
+    ImageSubBlock<int> Block(nx, ny, hx, hy);
 
-    int kernelX = hx * factor;
-    int kernelY = hy * factor;
-
-    // 1.1 compute block size based on window size
-    int blockside = factor * std::max(kernelX, kernelY);
-    int blocksize = blockside * blockside;
-
-    // 1.2 initialize block attributes 
-    int strideY = blockside - kernelY - 1;
-    int bsny = blockside < ny ? (ny - kernelY + strideY - 1) / strideY : 1;
-
-    int strideX = blockside - kernelX - 1; 
-    int bsnx = blockside < nx ? (nx - kernelX + strideX - 1) / strideX : 1;*/
-
-    ImageSubBlock<int> Im(nx, ny, hx, hy);
-
-    // 2 COMPUTE median of blocks
+    // 2 Compute median of each block in parallel
     #pragma omp parallel for schedule(dynamic, 1)
-    for(int iy = 0; iy < Im.GetBSNY(); iy++) { //iterate over blocks
-    	for (int ix = 0; ix < Im.GetBSNX(); ix++) { 
+    for(int iy = 0; iy < Block.GetBSNY(); iy++) { //iterate over blocks
+    	for (int ix = 0; ix < Block.GetBSNX(); ix++) { 
 
-            auto bs = Im.GetBlockSize();
+            BlockCoordinates Coords(Block, iy, ix);
+            //__________________________________________________________________________________________________
+
+            auto bs = Block.GetBlockSize();
             std::pair<float, int> *block_pixels; 
             block_pixels = new std::pair<float, int>[bs]; //blocksize
             std::vector<int> ordinals(bs); //blocksize
 
-            // coordinates inside the block on the pixel map
-            int y0block = iy * Im.GetStrideSizeY(); //y-starting coordinate of the block on image
-            //int y1block = std::min(ny, y0block + strideY + kernelY); // y-ending coordinate of the block on image
-            int y1block = std::min(ny, y0block + Im.GetStrideSizeY() + Im.GetKernelSizeY()); // y-ending coordinate of the block on image
-            int y_range = y1block - y0block;
-
-
-            int x0block = ix * Im.GetStrideSizeX(); //x-starting coordinate of the block on image
-            //int x1block = std::min(nx, x0block + strideX + kernelX); // x-ending coordinate of the block on image
-            int x1block = std::min(nx, x0block + Im.GetStrideSizeX() + Im.GetKernelSizeX()); // x-ending coordinate of the block on image
-            int x_range = x1block - x0block;
-
             // collect pixels into containers
             int localIndex = 0; // container index
-    		for (int y = 0; y < y_range; y++) {
-                for (int x = 0; x < x_range; x++) {
-                    int globalIndex = x + x0block + (y + y0block) * nx; // index of the pixel on image / global index
+    		for (int y = 0; y < Coords.GetRangeY(); y++) {
+                for (int x = 0; x < Coords.GetRangeX(); x++) {
+                    int globalIndex = x + Coords.GetX0() + (y + Coords.GetY0()) * nx; // index of the pixel on image / global index
                     block_pixels[localIndex] = std::make_pair(in[globalIndex], localIndex);
                     localIndex++;
                 }
@@ -178,8 +176,10 @@ void mf(int ny, int nx, int hy, int hx, const float *in, float *out) {
                 ordinals[block_pixels[i].second] = i;
             }
 
+            //________________________________________________________________________________________________
+
             //size of bitvector
-            int sz = x_range*y_range;
+            int sz = Coords.GetRangeX()*Coords.GetRangeY();
             int bvsize = (sz + DIV - 1) / DIV;
 
             uint64_t *bitvector; 
@@ -188,9 +188,9 @@ void mf(int ny, int nx, int hy, int hx, const float *in, float *out) {
             //mind the overlap
             int sty = (iy == 0) ? 0 : hy; 
             int stx = (ix == 0) ? 0 : hx; 
-            int eny = (iy == Im.GetBSNY() - 1) ? y_range : y_range - hy;
+            int eny = (iy == Block.GetBSNY() - 1) ? Coords.GetRangeY() : Coords.GetRangeY() - hy;
             //int eny = (iy == bsny - 1) ? y_range : y_range - hy;
-            int enx = (ix == Im.GetBSNX() - 1) ? x_range : x_range - hx;
+            int enx = (ix == Block.GetBSNX() - 1) ? Coords.GetRangeX() : Coords.GetRangeX() - hx;
             //int enx = (ix == bsnx - 1) ? x_range : x_range - hx;
 
             for (int y = sty; y < eny; y++) {
@@ -202,13 +202,13 @@ void mf(int ny, int nx, int hy, int hx, const float *in, float *out) {
                 //set values near initial position of running window
                 int y_str = std::max(y - hy, 0); 
                 int x_str = std::max(stx - hx, 0); 
-                int y_end = std::min(y + hy + 1, y_range);
-                int x_end = std::min(stx + hx + 1, x_range);
+                int y_end = std::min(y + hy + 1, Coords.GetRangeY());
+                int x_end = std::min(stx + hx + 1, Coords.GetRangeX());
 
                 //set bit to 1 if it is inside running window
                 for (int i = y_str; i < y_end; i++) {
                     for(int j = x_str; j < x_end; j++){
-                        int ind = j + i * x_range;
+                        int ind = j + i * Coords.GetRangeX();
                         int position = ordinals[ind];
                         int bitix = position / DIV;
                         int shift = DIV - position % DIV - 1; 
@@ -219,8 +219,8 @@ void mf(int ny, int nx, int hy, int hx, const float *in, float *out) {
                     //sliding window bounds
                     int sy = std::max(y - hy, 0);
                     int sx = std::max(x - hx, 0);
-                    int ey = std::min(y_range, y + hy + 1);
-                    int ex = std::min(x_range, x + hx + 1);
+                    int ey = std::min(Coords.GetRangeY(), y + hy + 1);
+                    int ex = std::min(Coords.GetRangeX(), x + hx + 1);
 
                     //size of running window
                     int window_size = (ey-sy)*(ex-sx);
@@ -232,7 +232,7 @@ void mf(int ny, int nx, int hy, int hx, const float *in, float *out) {
                     //unset left most vertical bits inside running window
                     for (int i = sxlr; i < exlr; i++) {
                         for (int j = sy; j < ey; j++) {
-                            int ind = sxlr + j * x_range;
+                            int ind = sxlr + j * Coords.GetRangeX();
                             int position = ordinals[ind];
                             int bitix = position / DIV;
                             int shift = DIV - position % DIV - 1;
@@ -242,7 +242,7 @@ void mf(int ny, int nx, int hy, int hx, const float *in, float *out) {
 
                     //set right most vertical bits inside running window
                     for(int j = sy; j < ey; j++) {
-                        int ind = ii + j * x_range;
+                        int ind = ii + j * Coords.GetRangeX();
                         int position = ordinals[ind];
                         int bitix = position / DIV;
                         int shift = DIV - position % DIV - 1;
@@ -250,7 +250,8 @@ void mf(int ny, int nx, int hy, int hx, const float *in, float *out) {
                     }
 
                     //compute median of the sliding window from the bit vector and set to result
-                    int globalIndex = x + x0block + (y + y0block) * nx;
+                    //int globalIndex = x + x0block + (y + y0block) * nx;
+                    int globalIndex = x + Coords.GetX0() + (y + Coords.GetY0()) * nx;
                     if(window_size % 2 == 1) {
                         int position = window_size / 2 + 1;
                         int remainder = position; 

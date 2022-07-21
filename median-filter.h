@@ -122,6 +122,10 @@ struct BlockCoordinates {
 
     inline int GetNX() const { return NX; }
 
+    inline int ComputeGlobalIndex(const int x, const int y) const {
+        return x + GetX0() + (y + GetY0()) * GetNX();
+    }
+
 private:
     inline int ComputeOriginCoordinates(const int stride, const int index) {
         return stride * index;
@@ -158,7 +162,8 @@ public:
     inline void MapPixelsToOrdinals(const BlockCoordinates<T>& coords, const float *in) {
         for (int y = 0; y < coords.GetRangeY(); y++) {
             for (int x = 0; x < coords.GetRangeX(); x++) {
-                int globalIndex = x + coords.GetX0() + (y + coords.GetY0()) * coords.GetNX(); // index of the pixel on image / global index
+                //int globalIndex = x + coords.GetX0() + (y + coords.GetY0()) * coords.GetNX(); // index of the pixel on image / global index
+                const int globalIndex = coords.ComputeGlobalIndex(x, y); // index of the pixel on image / global index
                 block_pixels[localIndex] = std::make_pair(in[globalIndex], localIndex);
                 IncreaseLocalIndex();
             }
@@ -312,7 +317,8 @@ void mf(int ny, int nx, int hy, int hx, const float *in, float *out) {
                     //__________________________________________________________________________________MEDIAN
 
                     //compute median of the sliding window from the bit vector and set to result
-                    int globalIndex = x + Coords.GetX0() + (y + Coords.GetY0()) * nx;
+                    //int globalIndex = x + Coords.GetX0() + (y + Coords.GetY0()) * nx;
+                    const int globalIndex = Coords.ComputeGlobalIndex(x, y); // index of the pixel on image / global index
                     if(window_size % 2 == 1) {
                         int position = window_size / 2 + 1;
                         int remainder = position; 

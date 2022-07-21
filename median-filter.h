@@ -195,14 +195,12 @@ public:
 
     inline void SetOne(const int position) {
         const int bitix = position / DIV;
-        //const int shift = DIV - position % DIV - 1;
         const int shift = ComputeShift(position);
         bitvector[bitix] |= (ONE << shift);
     }
 
     inline void SetZero(const int position) {
         const int bitix = position / DIV;
-        //const int shift = DIV - position % DIV - 1;
         const int shift = ComputeShift(position);
         bitvector[bitix] &= ~(ONE << shift);
     }

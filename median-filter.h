@@ -106,8 +106,9 @@ struct BlockCoordinates {
     x0(ComputeOriginCoordinates(Block.GetStrideSizeX(), ix)),
 
     y1(ComputeUpperCoordinates(Block.GetImageY(), y0, Block.GetStrideSizeY(), Block.GetKernelSizeY())),
-    x1(ComputeUpperCoordinates(Block.GetImageX(), x0, Block.GetStrideSizeX(), Block.GetKernelSizeX()))
+    x1(ComputeUpperCoordinates(Block.GetImageX(), x0, Block.GetStrideSizeX(), Block.GetKernelSizeX())),
 
+    NX(Block.GetImageX())
     {}
 
     // const
@@ -118,6 +119,8 @@ struct BlockCoordinates {
 
     inline int GetRangeX() const { return x1 - x0; }
     inline int GetRangeY() const { return y1 - y0; }
+
+    inline int GetNX() const { return NX; }
 
 private:
     inline int ComputeOriginCoordinates(const int stride, const int index) {
@@ -132,6 +135,90 @@ private:
     const int x0;
     const int y1;
     const int x1;
+
+    const int NX;
+};
+
+template <typename T>
+class TransformedData {
+public:
+    explicit TransformedData(const int blocksize) :
+    block_pixels(blocksize),
+    ordinals(blocksize),
+    localIndex(0)
+    {}
+
+    inline float GetPixel(const int index) const { return block_pixels[index].first; }
+    inline int GetOrdinal(const int index) const { return ordinals[index]; }
+
+    inline void SetOrdinals(const int value, const int index) {
+        ordinals[index] = value;
+    }
+
+    inline void MapPixelsToOrdinals(const BlockCoordinates<T>& coords, const float *in) {
+        for (int y = 0; y < coords.GetRangeY(); y++) {
+            for (int x = 0; x < coords.GetRangeX(); x++) {
+                int globalIndex = x + coords.GetX0() + (y + coords.GetY0()) * coords.GetNX(); // index of the pixel on image / global index
+                block_pixels[localIndex] = std::make_pair(in[globalIndex], localIndex);
+                IncreaseLocalIndex();
+            }
+        }
+    }
+
+    inline void InitializeOrdinals() {
+        std::sort(block_pixels.begin(), block_pixels.begin() + localIndex);
+
+        // compute ordinals
+        for (int i = 0; i < localIndex; i++) {
+            ordinals[block_pixels[i].second] = i;
+        }
+    }
+
+private:
+    inline void IncreaseLocalIndex() { localIndex++; }
+    std::vector<std::pair<float, int>> block_pixels;
+    std::vector<int> ordinals;
+
+    int localIndex;
+};
+
+class BitVector {
+public:
+    explicit BitVector(const int blockSize) :
+    bitvector((blockSize + DIV - 1) / DIV)
+    {}
+
+    inline void ReInitWithZeros() {
+        for(size_t i = 0; i < bitvector.size(); i++)
+            bitvector[i] = ZERO;
+    }
+
+    inline void SetOne(const int position) {
+        const int bitix = position / DIV;
+        //const int shift = DIV - position % DIV - 1;
+        const int shift = ComputeShift(position);
+        bitvector[bitix] |= (ONE << shift);
+    }
+
+    inline void SetZero(const int position) {
+        const int bitix = position / DIV;
+        //const int shift = DIV - position % DIV - 1;
+        const int shift = ComputeShift(position);
+        bitvector[bitix] &= ~(ONE << shift);
+    }
+
+    inline uint64_t GetBits(const int position) const { return bitvector[position]; }
+
+private:
+    inline int ComputeShift(const int position) const {
+        return DIV - position % DIV - 1;
+    }
+
+    std::vector<uint64_t> bitvector;
+
+    //static const uint64_t ONE  = 1L;
+    static const uint64_t ZERO = 0L;
+    //static const uint64_t DIV  = 64;
 };
 
 /* 
@@ -151,39 +238,19 @@ void mf(int ny, int nx, int hy, int hx, const float *in, float *out) {
     	for (int ix = 0; ix < Block.GetBSNX(); ix++) { 
 
             BlockCoordinates Coords(Block, iy, ix);
-            //__________________________________________________________________________________________________
-
+            //__________________________________________________________________________________________________OPERATIONS WITH PIXEL REMAPPING
             auto bs = Block.GetBlockSize();
-            std::pair<float, int> *block_pixels; 
-            block_pixels = new std::pair<float, int>[bs]; //blocksize
-            std::vector<int> ordinals(bs); //blocksize
 
-            // collect pixels into containers
-            int localIndex = 0; // container index
-    		for (int y = 0; y < Coords.GetRangeY(); y++) {
-                for (int x = 0; x < Coords.GetRangeX(); x++) {
-                    int globalIndex = x + Coords.GetX0() + (y + Coords.GetY0()) * nx; // index of the pixel on image / global index
-                    block_pixels[localIndex] = std::make_pair(in[globalIndex], localIndex);
-                    localIndex++;
-                }
-            }
+            TransformedData<int> TrDat(bs);
+            TrDat.MapPixelsToOrdinals(Coords, in);
 
-            //sort pixels
-            std::sort(block_pixels, block_pixels + localIndex);
+            TrDat.InitializeOrdinals();
+            //________________________________________________________________________________________________BITVECTOR
 
-            // compute ordinals
-            for (int i = 0; i < localIndex; i++) {
-                ordinals[block_pixels[i].second] = i;
-            }
+            BitVector bitvec(Coords.GetRangeX()*Coords.GetRangeY());
 
-            //________________________________________________________________________________________________
-
-            //size of bitvector
-            int sz = Coords.GetRangeX()*Coords.GetRangeY();
-            int bvsize = (sz + DIV - 1) / DIV;
-
-            uint64_t *bitvector; 
-            bitvector = new uint64_t[bvsize];
+            //________________________________________________________________________________________________ ???
+            // Possibly include into ImageSub class? 
 
             //mind the overlap
             int sty = (iy == 0) ? 0 : hy; 
@@ -193,13 +260,13 @@ void mf(int ny, int nx, int hy, int hx, const float *in, float *out) {
             int enx = (ix == Block.GetBSNX() - 1) ? Coords.GetRangeX() : Coords.GetRangeX() - hx;
             //int enx = (ix == bsnx - 1) ? x_range : x_range - hx;
 
+            //________________________________________________________________________________________________
+
             for (int y = sty; y < eny; y++) {
                 //init bitvector with zeros
-                for(int r = 0; r < bvsize; r++){
-                    bitvector[r] = ZERO;
-                }
+                bitvec.ReInitWithZeros();
 
-                //set values near initial position of running window
+                //set values near initial position of running window --- coordinates of the running window inside the block
                 int y_str = std::max(y - hy, 0); 
                 int x_str = std::max(stx - hx, 0); 
                 int y_end = std::min(y + hy + 1, Coords.GetRangeY());
@@ -209,12 +276,11 @@ void mf(int ny, int nx, int hy, int hx, const float *in, float *out) {
                 for (int i = y_str; i < y_end; i++) {
                     for(int j = x_str; j < x_end; j++){
                         int ind = j + i * Coords.GetRangeX();
-                        int position = ordinals[ind];
-                        int bitix = position / DIV;
-                        int shift = DIV - position % DIV - 1; 
-                        bitvector[bitix] |= (ONE << shift);
+                        int position = TrDat.GetOrdinal(ind);
+                        bitvec.SetOne(position);
                     }
                 }
+
                 for (int x = stx; x < enx; x++) {
                     //sliding window bounds
                     int sy = std::max(y - hy, 0);
@@ -227,44 +293,41 @@ void mf(int ny, int nx, int hy, int hx, const float *in, float *out) {
 
                     int sxlr = std::max(x - hx - 1, 0);
                     int exlr = std::max(x - hx, 0);
-                    int ii = std::min(x + hx, ex - 1);
+                    int ii   = std::min(x + hx, ex - 1);
 
                     //unset left most vertical bits inside running window
                     for (int i = sxlr; i < exlr; i++) {
                         for (int j = sy; j < ey; j++) {
                             int ind = sxlr + j * Coords.GetRangeX();
-                            int position = ordinals[ind];
-                            int bitix = position / DIV;
-                            int shift = DIV - position % DIV - 1;
-                            bitvector[bitix] &= ~(ONE << shift);
+                            int position = TrDat.GetOrdinal(ind);
+                            bitvec.SetZero(position);
                         }
                     }
 
                     //set right most vertical bits inside running window
                     for(int j = sy; j < ey; j++) {
                         int ind = ii + j * Coords.GetRangeX();
-                        int position = ordinals[ind];
-                        int bitix = position / DIV;
-                        int shift = DIV - position % DIV - 1;
-                        bitvector[bitix] |= (ONE << shift);
+                        int position = TrDat.GetOrdinal(ind);
+                        bitvec.SetOne(position);
                     }
 
+                    //__________________________________________________________________________________MEDIAN
+
                     //compute median of the sliding window from the bit vector and set to result
-                    //int globalIndex = x + x0block + (y + y0block) * nx;
                     int globalIndex = x + Coords.GetX0() + (y + Coords.GetY0()) * nx;
                     if(window_size % 2 == 1) {
                         int position = window_size / 2 + 1;
                         int remainder = position; 
                         int d = 0;
                         while (remainder > 0) {
-                            int bb = countbits(bitvector[d]);
+                            int bb = countbits(bitvec.GetBits(d));
                             remainder -= bb; 
                             d++;
                         }
 
                         int N = std::abs(remainder);
-                        int ord = (d - 1) * DIV + (DIV - getNthBit(N, bitvector[d-1])); 
-                        float median = block_pixels[ord - 1].first;
+                        int ord = (d - 1) * DIV + (DIV - getNthBit(N, bitvec.GetBits(d-1)));
+                        float median = TrDat.GetPixel(ord - 1);
                         out[globalIndex] = median;
                         
 
@@ -274,30 +337,27 @@ void mf(int ny, int nx, int hy, int hx, const float *in, float *out) {
                         int remainder = position1;
                         int d = 0; 
                         while(remainder > 0) {
-                            int bb = countbits(bitvector[d]);
+                            int bb = countbits(bitvec.GetBits(d));
                             remainder -= bb; 
                             d++; 
                         }
                         int N1 = std::abs(remainder); 
-                        int ord1 = (d-1) * DIV + (DIV - getNthBit(N1, bitvector[d-1]));
+                        int ord1 = (d - 1) * DIV + (DIV - getNthBit(N1, bitvec.GetBits(d-1)));
                         remainder = position2;
                         d = 0;
                         while(remainder > 0) {
-                            int bb = countbits(bitvector[d]);
+                            int bb = countbits(bitvec.GetBits(d));
                             remainder -= bb; 
                             d++; 
                         }
                         int N2 = std::abs(remainder); 
-                        int ord2 = (d-1) * DIV + (DIV - getNthBit(N2, bitvector[d-1]));
-                        double median1 = block_pixels[ord1 - 1].first;
-                        double median2 = block_pixels[ord2 - 1].first;
+                        int ord2 = (d - 1) * DIV + (DIV - getNthBit(N2, bitvec.GetBits(d-1)));
+                        double median1 = TrDat.GetPixel(ord1 - 1);
+                        double median2 = TrDat.GetPixel(ord2 - 1);
                         out[globalIndex] = (median1 + median2)/2;
                     }
                 }
             }
-
-            delete[] block_pixels;
-            delete[] bitvector;
     	}
     }
 }

@@ -162,7 +162,6 @@ public:
     inline void MapPixelsToOrdinals(const BlockCoordinates<T>& coords, const float *in) {
         for (int y = 0; y < coords.GetRangeY(); y++) {
             for (int x = 0; x < coords.GetRangeX(); x++) {
-                //int globalIndex = x + coords.GetX0() + (y + coords.GetY0()) * coords.GetNX(); // index of the pixel on image / global index
                 const int globalIndex = coords.ComputeGlobalIndex(x, y); // index of the pixel on image / global index
                 block_pixels[localIndex] = std::make_pair(in[globalIndex], localIndex);
                 IncreaseLocalIndex();
@@ -181,6 +180,7 @@ public:
 
 private:
     inline void IncreaseLocalIndex() { localIndex++; }
+    
     std::vector<std::pair<float, int>> block_pixels;
     std::vector<int> ordinals;
 
@@ -252,7 +252,7 @@ void mf(int ny, int nx, int hy, int hx, const float *in, float *out) {
 
             BitVector bitvec(Coords.GetRangeX()*Coords.GetRangeY());
 
-            //________________________________________________________________________________________________ ???
+            //________________________________________________________________________________________________ This goes to block coordinates, as only depends on it
             // Possibly include into ImageSub class? 
 
             //mind the overlap

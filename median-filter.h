@@ -22,9 +22,8 @@ inline uint64_t getNthBit(int N, uint64_t mask){
     return __builtin_ctzll(_pdep_u64(ONE << N, mask));
 }
 
-template <typename T>
 struct ImageSubBlock {
-    explicit ImageSubBlock(const T NX, const T NY, const T hx, const T hy) :
+    explicit ImageSubBlock(const int NX, const int NY, const int hx, const int hy) :
 
     imageSizeX(NX),
     imageSizeY(NY),
@@ -46,62 +45,63 @@ struct ImageSubBlock {
 
     {}
 
-    inline const T GetImageX()      const { return imageSizeX; }
-    inline const T GetImageY()      const { return imageSizeY; }
+    inline int GetImageX()      const { return imageSizeX; }
+    inline int GetImageY()      const { return imageSizeY; }
 
-    inline const T GetSWlength()    const { return SWlength; }
-    inline const T GetSWheight()    const { return SWheight; }
+    inline int GetSWlength()    const { return SWlength; }
+    inline int GetSWheight()    const { return SWheight; }
 
-    inline const T GetKernelSizeX() const { return kernelSizeX; }
-    inline const T GetKernelSizeY() const { return kernelSizeY; }
+    inline int GetKernelSizeX() const { return kernelSizeX; }
+    inline int GetKernelSizeY() const { return kernelSizeY; }
 
-    inline const T GetBlockSide()   const { return blockside; }
-    inline const T GetBlockSize()   const { return blocksize; }
+    inline int GetBlockSide()   const { return blockside; }
+    inline int GetBlockSize()   const { return blocksize; }
 
-    inline const T GetStrideSizeX() const { return strideSizeX; }
-    inline const T GetStrideSizeY() const { return strideSizeY; }
+    inline int GetStrideSizeX() const { return strideSizeX; }
+    inline int GetStrideSizeY() const { return strideSizeY; }
 
-    inline const T GetBSNX()        const { return bsnx; }
-    inline const T GetBSNY()        const { return bsny; }
+    inline int GetBSNX()        const { return bsnx; }
+    inline int GetBSNY()        const { return bsny; }
 
 private:
 
-    inline T CalculateSizeOfBlockSide() {
+    inline int CalculateSizeOfBlockSide() {
         return scalingFactor * std::max(kernelSizeX, kernelSizeY);
     }
 
-    inline T CalculateSizeOfStride(T kernelSize) {
+    inline int CalculateSizeOfStride(int kernelSize) {
         return blockside - kernelSize - 1;
     }
 
-    inline T CalculateBlockSizeN(T N, T kernelSize, T strideSize) {
+    inline int CalculateBlockSizeN(int N, int kernelSize, int strideSize) {
         return blockside < N ? (N - kernelSize + strideSize - 1) / strideSize : 1;
     }
 
-    const T imageSizeX;
-    const T imageSizeY;
+    const int imageSizeX;
+    const int imageSizeY;
 
-    const T SWlength;
-    const T SWheight;
+    const int SWlength;
+    const int SWheight;
 
-    const T kernelSizeX;
-    const T kernelSizeY;
+    const int kernelSizeX;
+    const int kernelSizeY;
 
-    const T blockside;
-    const T blocksize;
+    const int blockside;
+    const int blocksize;
 
-    const T strideSizeX;
-    const T strideSizeY;
+    const int strideSizeX;
+    const int strideSizeY;
 
-    const T bsnx;
-    const T bsny; 
+    const int bsnx;
+    const int bsny; 
 
 
 };
 
-template <typename T>
+// this depends on ImageSubBlock and it is bad
+// remove this dependency and init only with correct arguments
 struct BlockCoordinates {
-    explicit BlockCoordinates(const ImageSubBlock<T>& Block, const int iy, const int ix) : 
+    explicit BlockCoordinates(const ImageSubBlock& Block, const int iy, const int ix) : 
     y0(ComputeOriginCoordinates(Block.GetStrideSizeY(), iy)),
     x0(ComputeOriginCoordinates(Block.GetStrideSizeX(), ix)),
 
@@ -179,7 +179,6 @@ private:
     const int enx;
 };
 
-template <typename T>
 class TransformedData {
 public:
     explicit TransformedData(const int blocksize) :
@@ -195,7 +194,8 @@ public:
         ordinals[index] = value;
     }
 
-    inline void MapPixelsToOrdinals(const BlockCoordinates<T>& coords, const float *in) {
+    // also remove this dependency on coords
+    inline void MapPixelsToOrdinals(const BlockCoordinates& coords, const float *in) {
         for (int y = 0; y < coords.GetRangeY(); y++) {
             for (int x = 0; x < coords.GetRangeX(); x++) {
                 const int globalIndex = coords.ComputeGlobalIndex(x, y); // index of the pixel on image / global index
@@ -260,45 +260,62 @@ private:
     //static const uint64_t DIV  = 64;
 };
 
+class MedianFilter {
+public:
+    explicit MedianFilter(const float *in, float *out, const ImageSubBlock& Block, const int iy, const int ix) :
+    inputData(in),
+    outputData(out),
+    Coords(Block, iy, ix),
+    Data(Block.GetBlockSize())
+    {}
+
+    inline void Run() {
+        Data.MapPixelsToOrdinals(Coords, inputData);
+        Data.InitializeOrdinals();
+        Bitvec(Coords.GetRangeX() * GetRangeY());
+
+    }
+
+private:
+    const float *inputData;
+    float *outputData;
+
+    BlockCoordinates Coords;
+    TransformedData Data;
+    BitVector Bitvec;
+};
+
 /* 
 (ny, nx) size of the image 
 (hy, hx) size of sliding window
-(in) pointer to the data
-(out) pointer to median-fitlered data
+(in)     pointer to the data
+(out)    pointer to median-fitlered data
 */
 void mf(int ny, int nx, int hy, int hx, const float *in, float *out) {
 
     // 1 Partition the image into blocks
-    ImageSubBlock<int> Block(nx, ny, hx, hy);
+    ImageSubBlock Block(nx, ny, hx, hy);
 
     // 2 Compute median of each block in parallel
     #pragma omp parallel for schedule(dynamic, 1)
-    for(int iy = 0; iy < Block.GetBSNY(); iy++) { //iterate over blocks
+    for(int iy = 0; iy < Block.GetBSNY(); iy++) { //iterate over all blocks
     	for (int ix = 0; ix < Block.GetBSNX(); ix++) { 
 
             BlockCoordinates Coords(Block, iy, ix);
-            //__________________________________________________________________________________________________OPERATIONS WITH PIXEL REMAPPING
+            //________________________________________________________________________________________________OPERATIONS WITH PIXEL REMAPPING
             auto bs = Block.GetBlockSize();
 
-            TransformedData<int> TrDat(bs);
-            TrDat.MapPixelsToOrdinals(Coords, in);
+            TransformedData TrDat(bs);
 
+            TrDat.MapPixelsToOrdinals(Coords, in);
             TrDat.InitializeOrdinals();
             //________________________________________________________________________________________________BITVECTOR
 
             BitVector bitvec(Coords.GetRangeX()*Coords.GetRangeY());
 
-            //________________________________________________________________________________________________ This goes to block coordinates, as only depends on it
-
-            //mind the overlap
-            /*int sty = (iy == 0) ? 0 : hy;
-            int stx = (ix == 0) ? 0 : hx;
-            int eny = (iy == Block.GetBSNY() - 1) ? Coords.GetRangeY() : Coords.GetRangeY() - hy;
-            int enx = (ix == Block.GetBSNX() - 1) ? Coords.GetRangeX() : Coords.GetRangeX() - hx;*/
-
             //________________________________________________________________________________________________
 
-            for (int y = Coords.GetSTY(); y < Coords.GetENY(); y++) { //sty, eny
+            for (int y = Coords.GetSTY(); y < Coords.GetENY(); y++) { //sty, eny --- this iterates over the coordinates of the a single block over y dimentsion
                 //init bitvector with zeros
                 bitvec.ReInitWithZeros();
 
@@ -319,7 +336,7 @@ void mf(int ny, int nx, int hy, int hx, const float *in, float *out) {
                     }
                 }
 
-                for (int x = Coords.GetSTX(); x < Coords.GetENX(); x++) { //stx, enx
+                for (int x = Coords.GetSTX(); x < Coords.GetENX(); x++) { //stx, enx --- this iterates over the coordinates of the a single block over x dimentsion
                     //sliding window bounds
                     int sy = std::max(y - hy, 0);
                     int sx = std::max(x - hx, 0);
@@ -352,7 +369,6 @@ void mf(int ny, int nx, int hy, int hx, const float *in, float *out) {
                     //__________________________________________________________________________________MEDIAN
 
                     //compute median of the sliding window from the bit vector and set to result
-                    //int globalIndex = x + Coords.GetX0() + (y + Coords.GetY0()) * nx;
                     const int globalIndex = Coords.ComputeGlobalIndex(x, y); // index of the pixel on image / global index
                     if(window_size % 2 == 1) {
                         int position = window_size / 2 + 1;

@@ -108,7 +108,14 @@ struct BlockCoordinates {
     y1(ComputeUpperCoordinates(Block.GetImageY(), y0, Block.GetStrideSizeY(), Block.GetKernelSizeY())),
     x1(ComputeUpperCoordinates(Block.GetImageX(), x0, Block.GetStrideSizeX(), Block.GetKernelSizeX())),
 
-    NX(Block.GetImageX())
+    NX(Block.GetImageX()),
+    HX(Block.GetSWlength()), //?
+    HY(Block.GetSWheight()), //?
+
+    sty(ComputeStartCoordY(iy, Block.GetSWheight())),
+    stx(ComputeStartCoordX(ix, Block.GetSWlength())),
+    eny(ComputeEndCoordY(iy, Block.GetBSNY(), Block.GetSWheight())),
+    enx(ComputeEndCoordX(ix, Block.GetBSNX(), Block.GetSWlength()))
     {}
 
     // const
@@ -126,6 +133,11 @@ struct BlockCoordinates {
         return x + GetX0() + (y + GetY0()) * GetNX();
     }
 
+    inline int GetSTY() const { return sty; }
+    inline int GetSTX() const { return stx; }
+    inline int GetENY() const { return eny; }
+    inline int GetENX() const { return enx; }
+
 private:
     inline int ComputeOriginCoordinates(const int stride, const int index) {
         return stride * index;
@@ -135,12 +147,36 @@ private:
         return std::min(n, start + kernel + stride);
     }
 
+    inline int ComputeStartCoordY(const int iy, const int hy) {
+        return (iy == 0) ? 0 : hy;
+    }
+
+    inline int ComputeStartCoordX(const int ix, const int hx) {
+        return (ix == 0) ? 0 : hx;
+    }
+
+    inline int ComputeEndCoordY(const int iy, const int bsny, const int hy) {
+        return (iy == bsny - 1) ? GetRangeY() : GetRangeY() - hy;
+    }
+
+    inline int ComputeEndCoordX(const int ix, const int bsnx, const int hx) {
+        return (ix == bsnx - 1) ? GetRangeX() : GetRangeX() - hx;
+    }
+
     const int y0;
     const int x0;
     const int y1;
     const int x1;
 
     const int NX;
+
+    const int HX;
+    const int HY;
+
+    const int sty;
+    const int stx;
+    const int eny;
+    const int enx;
 };
 
 template <typename T>
@@ -213,7 +249,7 @@ public:
     inline uint64_t GetBits(const int position) const { return bitvector[position]; }
 
 private:
-    inline int ComputeShift(const int position) const {
+    inline int ComputeShift(const int position) const { //class member or separate function? 
         return DIV - position % DIV - 1;
     }
 
@@ -253,27 +289,26 @@ void mf(int ny, int nx, int hy, int hx, const float *in, float *out) {
             BitVector bitvec(Coords.GetRangeX()*Coords.GetRangeY());
 
             //________________________________________________________________________________________________ This goes to block coordinates, as only depends on it
-            // Possibly include into ImageSub class? 
 
             //mind the overlap
-            int sty = (iy == 0) ? 0 : hy; 
-            int stx = (ix == 0) ? 0 : hx; 
+            /*int sty = (iy == 0) ? 0 : hy;
+            int stx = (ix == 0) ? 0 : hx;
             int eny = (iy == Block.GetBSNY() - 1) ? Coords.GetRangeY() : Coords.GetRangeY() - hy;
-            //int eny = (iy == bsny - 1) ? y_range : y_range - hy;
-            int enx = (ix == Block.GetBSNX() - 1) ? Coords.GetRangeX() : Coords.GetRangeX() - hx;
-            //int enx = (ix == bsnx - 1) ? x_range : x_range - hx;
+            int enx = (ix == Block.GetBSNX() - 1) ? Coords.GetRangeX() : Coords.GetRangeX() - hx;*/
 
             //________________________________________________________________________________________________
 
-            for (int y = sty; y < eny; y++) {
+            for (int y = Coords.GetSTY(); y < Coords.GetENY(); y++) { //sty, eny
                 //init bitvector with zeros
                 bitvec.ReInitWithZeros();
 
                 //set values near initial position of running window --- coordinates of the running window inside the block
                 int y_str = std::max(y - hy, 0); 
-                int x_str = std::max(stx - hx, 0); 
+                //int x_str = std::max(stx - hx, 0);
+                int x_str = std::max(Coords.GetSTX() - hx, 0);
                 int y_end = std::min(y + hy + 1, Coords.GetRangeY());
-                int x_end = std::min(stx + hx + 1, Coords.GetRangeX());
+                //int x_end = std::min(stx + hx + 1, Coords.GetRangeX());
+                int x_end = std::min(Coords.GetSTX() + hx + 1, Coords.GetRangeX());
 
                 //set bit to 1 if it is inside running window
                 for (int i = y_str; i < y_end; i++) {
@@ -284,7 +319,7 @@ void mf(int ny, int nx, int hy, int hx, const float *in, float *out) {
                     }
                 }
 
-                for (int x = stx; x < enx; x++) {
+                for (int x = Coords.GetSTX(); x < Coords.GetENX(); x++) { //stx, enx
                     //sliding window bounds
                     int sy = std::max(y - hy, 0);
                     int sx = std::max(x - hx, 0);

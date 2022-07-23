@@ -329,34 +329,39 @@ public:
     }
 
 private:
-
     inline void ComputeMedian(const int globalIndex, const int window_size) {
-        if(window_size % 2 == 1) {
-            int position  = window_size / 2 + 1;
-            auto indexes  = ComputeRemainder(0, position);
+        if(window_size % 2 == 1)
+            outputData[globalIndex] = ComputeMedianForOddSizedWindow(window_size);
+        else 
+            outputData[globalIndex] = ComputeMedianForEvenSizedWindow(window_size);
+    }
 
-            const int N   = std::abs(indexes.second);
-            const int ord = ComputePixelOrder(indexes.first, N);
+    // merge these two
+    inline float ComputeMedianForOddSizedWindow(const int window_size) {
+        int position  = window_size / 2 + 1;
+        auto indexes  = ComputeRemainder(0, position);
 
-            float median  = Data.GetPixel(ord);
-            outputData[globalIndex] = median;
-        } else {
-            int position1  = (window_size / 2);
-            int position2  = (window_size / 2) + 1;
+        const int N   = std::abs(indexes.second);
+        const int ord = ComputePixelOrder(indexes.first, N);
 
-            auto indexes1  = ComputeRemainder(0, position1);
-            auto indexes2  = ComputeRemainder(0, position2);
+        return Data.GetPixel(ord);
+    }
 
-            const int N1   = std::abs(indexes1.second);
-            const int N2   = std::abs(indexes2.second);
+    //these two
+    inline float ComputeMedianForEvenSizedWindow(const int window_size) {
+        int position1  = (window_size / 2);
+        int position2  = (window_size / 2) + 1;
 
-            const int ord1 = ComputePixelOrder(indexes1.first, N1);
-            const int ord2 = ComputePixelOrder(indexes2.first, N2);
+        auto indexes1  = ComputeRemainder(0, position1);
+        auto indexes2  = ComputeRemainder(0, position2);
 
-            double median1 = Data.GetPixel(ord1);
-            double median2 = Data.GetPixel(ord2);
-            outputData[globalIndex] = (median1 + median2)/2;
-        }
+        const int N1   = std::abs(indexes1.second);
+        const int N2   = std::abs(indexes2.second);
+
+        const int ord1 = ComputePixelOrder(indexes1.first, N1);
+        const int ord2 = ComputePixelOrder(indexes2.first, N2);
+
+        return (Data.GetPixel(ord1) + Data.GetPixel(ord2)) / 2;
     }
 
     inline int ComputePixelOrder(const int index, const int order) const {

@@ -256,10 +256,6 @@ private:
     }
 
     std::vector<uint64_t> bitvector;
-
-    //static const uint64_t ONE  = 1L;
-    static const uint64_t ZERO = 0L;
-    //static const uint64_t DIV  = 64;
 };
 
 class MedianFilter {
@@ -275,7 +271,6 @@ public:
     inline void Run() {
         Data.MapPixelsToOrdinals(Coords, inputData);
         Data.InitializeOrdinals();
-        //Bitvec(Coords.GetRangeX() * Coords.GetRangeY());
 
         for (int y = Coords.GetSTY(); y < Coords.GetENY(); y++) { //sty, eny --- this iterates over the coordinates of the a single block over y dimentsion
                 //init bitvector with zeros
@@ -326,57 +321,57 @@ public:
                         Bitvec.SetOne(position);
                     }
 
-                    //__________________________________________________________________________________MEDIAN
-
                     //compute median of the sliding window from the bit vector and set to result
                     const int globalIndex = Coords.ComputeGlobalIndex(x, y); // index of the pixel on image / global index
-                    if(window_size % 2 == 1) {
-                        int position = window_size / 2 + 1;
-                        int remainder = position; 
-                        int d = 0;
-                        while (remainder > 0) {
-                            int bb = countbits(Bitvec.GetBits(d));
-                            remainder -= bb; 
-                            d++;
-                        }
-
-                        int N = std::abs(remainder);
-                        int ord = (d - 1) * DIV + (DIV - getNthBit(N, Bitvec.GetBits(d-1)));
-                        float median = Data.GetPixel(ord - 1);
-                        //out[globalIndex] = median;
-                        outputData[globalIndex] = median;
-                        
-
-                    } else {
-                        int position1 = (window_size / 2);
-                        int position2 = (window_size / 2) + 1;
-                        int remainder = position1;
-                        int d = 0; 
-                        while(remainder > 0) {
-                            int bb = countbits(Bitvec.GetBits(d));
-                            remainder -= bb; 
-                            d++; 
-                        }
-                        int N1 = std::abs(remainder); 
-                        int ord1 = (d - 1) * DIV + (DIV - getNthBit(N1, Bitvec.GetBits(d-1)));
-                        remainder = position2;
-                        d = 0;
-                        while(remainder > 0) {
-                            int bb = countbits(Bitvec.GetBits(d));
-                            remainder -= bb; 
-                            d++; 
-                        }
-                        int N2 = std::abs(remainder); 
-                        int ord2 = (d - 1) * DIV + (DIV - getNthBit(N2, Bitvec.GetBits(d-1)));
-                        double median1 = Data.GetPixel(ord1 - 1);
-                        double median2 = Data.GetPixel(ord2 - 1);
-                        outputData[globalIndex] = (median1 + median2)/2;
-                    }
+                    ComputeMedian(globalIndex, window_size);
                 }
             }
     }
 
 private:
+
+    inline void ComputeMedian(const int globalIndex, const int window_size) {
+        if(window_size % 2 == 1) {
+            int position  = window_size / 2 + 1;
+            auto indexes  = ComputeRemainder(0, position);
+
+            const int N   = std::abs(indexes.second);
+            const int ord = ComputePixelOrder(indexes.first, N);
+
+            float median  = Data.GetPixel(ord);
+            outputData[globalIndex] = median;
+        } else {
+            int position1  = (window_size / 2);
+            int position2  = (window_size / 2) + 1;
+
+            auto indexes1  = ComputeRemainder(0, position1);
+            auto indexes2  = ComputeRemainder(0, position2);
+
+            const int N1   = std::abs(indexes1.second);
+            const int N2   = std::abs(indexes2.second);
+
+            const int ord1 = ComputePixelOrder(indexes1.first, N1);
+            const int ord2 = ComputePixelOrder(indexes2.first, N2);
+
+            double median1 = Data.GetPixel(ord1);
+            double median2 = Data.GetPixel(ord2);
+            outputData[globalIndex] = (median1 + median2)/2;
+        }
+    }
+
+    inline int ComputePixelOrder(const int index, const int order) const {
+        return (index - 1) * DIV + (DIV - getNthBit(order, Bitvec.GetBits(index - 1))) - 1;
+    }
+
+    inline std::pair<int, int> ComputeRemainder(int d, int remainder) { //bitvec function? d not as a parameter
+        while (remainder > 0) {
+            int bb = countbits(Bitvec.GetBits(d));
+            remainder -= bb;
+            d++;
+        }
+        return {d, remainder};
+    }
+
     const float *inputData;
     float *outputData;
 
@@ -400,10 +395,9 @@ void mf(int ny, int nx, int hy, int hx, const float *in, float *out) {
     // compute median of each block in parallel
     #pragma omp parallel for schedule(dynamic, 1)
     for(int iy = 0; iy < Block.GetBSNY(); iy++) {
-    	for (int ix = 0; ix < Block.GetBSNX(); ix++) {
-
+        for (int ix = 0; ix < Block.GetBSNX(); ix++) {
             MedianFilter Mf(in, out, Block, iy, ix);
             Mf.Run();
-    	}
+        }
     }
 }

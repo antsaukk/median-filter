@@ -139,6 +139,23 @@ struct BlockCoordinates {
     inline int GetENY() const { return eny; }
     inline int GetENX() const { return enx; }
 
+    // bad names and simplification?
+    inline int GetStartY(const int y) const {
+        return std::max(y - GetHY(), 0);    
+    }
+
+    inline int GetStartX() const {
+        return std::max(GetSTX() - GetHX(), 0);
+    }
+
+    inline int GetEndY(const int y) const {
+        return std::min(y + GetHY() + 1, GetRangeY());
+    }
+
+    inline int GetEndX() const {
+        return std::min(GetSTX() + GetHX() + 1, GetRangeX());
+    }
+
 private:
     inline int ComputeOriginCoordinates(const int stride, const int index) {
         return stride * index;
@@ -322,25 +339,23 @@ private:
         return {d, remainder};
     }
 
+    inline void SetBitsInsideWindow(const int y) {
+        for (int i = Coords.GetStartY(y); i < Coords.GetEndY(y); i++) {
+            for(int j = Coords.GetStartX(); j < Coords.GetEndX(); j++){
+                int ind = j + i * Coords.GetRangeX();
+                int position = Data.GetOrdinal(ind);
+                Bitvec.SetOne(position);
+            }
+        }
+    }
+
     inline void ComputeMediansForCoordinateBlock() {
         for (int y = Coords.GetSTY(); y < Coords.GetENY(); y++) { //sty, eny --- this iterates over the coordinates of the a single block over y dimentsion
             //init bitvector with zeros
             Bitvec.ReInitWithZeros();
 
-            //set values near initial position of running window --- coordinates of the running window inside the block
-            int y_str = std::max(y - Coords.GetHY(), 0);
-            int x_str = std::max(Coords.GetSTX() - Coords.GetHX(), 0);
-            int y_end = std::min(y + Coords.GetHY() + 1, Coords.GetRangeY());
-            int x_end = std::min(Coords.GetSTX() + Coords.GetHX() + 1, Coords.GetRangeX());
-
-            //set bit to 1 if it is inside running window
-            for (int i = y_str; i < y_end; i++) {
-                for(int j = x_str; j < x_end; j++){
-                    int ind = j + i * Coords.GetRangeX();
-                    int position = Data.GetOrdinal(ind);
-                    Bitvec.SetOne(position);
-                }
-            }
+            // set bit if it is inside sliding window
+            SetBitsInsideWindow(y);
 
             for (int x = Coords.GetSTX(); x < Coords.GetENX(); x++) { //stx, enx --- this iterates over the coordinates of the a single block over x dimentsion
                 //sliding window bounds
@@ -354,7 +369,7 @@ private:
 
                 int sxlr = std::max(x - Coords.GetHX() - 1, 0);
                 int exlr = std::max(x - Coords.GetHX(), 0);
-                
+
                 int ii   = std::min(x + Coords.GetHX(), ex - 1);
 
                 //unset left most vertical bits inside running window

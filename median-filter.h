@@ -139,7 +139,7 @@ struct BlockCoordinates {
     inline int GetENY() const { return eny; }
     inline int GetENX() const { return enx; }
 
-    // bad names and simplification?
+    // bad names and simplification? Shall it be in this class? 
     inline int GetStartY(const int y) const {
         return std::max(y - GetHY(), 0);    
     }
@@ -156,7 +156,41 @@ struct BlockCoordinates {
         return std::min(GetSTX() + GetHX() + 1, GetRangeX());
     }
 
+    // --------------------
+    inline int GetSY(const int y) const {
+        return std::max(y - GetHY(), 0);
+    }
+    
+    inline int GetEY(const int y) const {
+        return std::min(GetRangeY(), y + GetHY() + 1);
+    }
+
+    inline int GetSizeOfSlidingWindow(const int x, const int y) const {
+        return (GetEY(y) - GetSY(y)) * (GetEX(x) - GetSX(x));
+    }
+
+    inline int GetStartCoordinateOfTheLeftmostVerticalBlock(const int x) const {
+        return std::max(x - GetHX() - 1, 0);
+                
+    }
+
+    inline int GetEndCoordinateOfTheLeftmostVerticalBlock(const int x) const {
+        return std::max(x - GetHX(), 0);
+    }
+
+    inline int GetOffsetOfTheRightmostVerticalBlock(const int x) const {
+        return std::min(x + GetHX(), GetEX(x) - 1);
+    }
+
 private:
+    inline int GetSX(const int x) const {
+        return std::max(x - GetHX(), 0);           
+    }
+
+    inline int GetEX(const int x) const {
+        return std::min(GetRangeX(), x + GetHX() + 1);
+    }
+
     inline int ComputeOriginCoordinates(const int stride, const int index) {
         return stride * index;
     }
@@ -291,16 +325,16 @@ public:
     }
 
 private:
-    inline void ComputeMedianForSlidingWindow(const int globalIndex, const int window_size) {
-        if(window_size % 2 == 1)
-            outputData[globalIndex] = ComputeMedianForOddSizedWindow(window_size);
+    inline void ComputeMedianForSlidingWindow(const int globalIndex, const int windowSize) {
+        if(windowSize % 2 == 1)
+            outputData[globalIndex] = ComputeMedianForOddSizedWindow(windowSize);
         else 
-            outputData[globalIndex] = ComputeMedianForEvenSizedWindow(window_size);
+            outputData[globalIndex] = ComputeMedianForEvenSizedWindow(windowSize);
     }
 
     // merge these two
-    inline float ComputeMedianForOddSizedWindow(const int window_size) {
-        int position  = window_size / 2 + 1;
+    inline float ComputeMedianForOddSizedWindow(const int windowSize) {
+        int position  = windowSize / 2 + 1;
         auto indexes  = ComputeRemainder(0, position);
 
         const int N   = std::abs(indexes.second);
@@ -310,9 +344,9 @@ private:
     }
 
     //these two
-    inline float ComputeMedianForEvenSizedWindow(const int window_size) {
-        int position1  = (window_size / 2); // optimize to multiply
-        int position2  = (window_size / 2) + 1;
+    inline float ComputeMedianForEvenSizedWindow(const int windowSize) {
+        int position1  = (windowSize / 2); // optimize to multiply
+        int position2  = (windowSize / 2) + 1;
 
         auto indexes1  = ComputeRemainder(0, position1);
         auto indexes2  = ComputeRemainder(0, position2);
@@ -349,48 +383,48 @@ private:
         }
     }
 
+    inline void UnsetLeftmostVerticalBits(const int x, const int y) {
+        const int leftStart = Coords.GetStartCoordinateOfTheLeftmostVerticalBlock(x);
+        const int leftEnd   = Coords.GetEndCoordinateOfTheLeftmostVerticalBlock(x);
+
+        for (int i = leftStart; i < leftEnd; i++) {
+            for (int j = Coords.GetSY(y); j < Coords.GetEY(y); j++) {
+                int ind = leftStart + j * Coords.GetRangeX();
+                int position = Data.GetOrdinal(ind);
+                Bitvec.SetZero(position);
+            }
+        }
+    }
+
+    inline void SetRightmostVerticalBits(const int x, const int y) {
+        const int offset = Coords.GetOffsetOfTheRightmostVerticalBlock(x);
+
+        for(int j = Coords.GetSY(y); j < Coords.GetEY(y); j++) {
+            int ind = offset + j * Coords.GetRangeX();
+            int position = Data.GetOrdinal(ind);
+            Bitvec.SetOne(position);
+        }
+    }
+
     inline void ComputeMediansForCoordinateBlock() {
-        for (int y = Coords.GetSTY(); y < Coords.GetENY(); y++) { //sty, eny --- this iterates over the coordinates of the a single block over y dimentsion
+        for (int y = Coords.GetSTY(); y < Coords.GetENY(); y++) { // iterates over the coordinates of the a single block over y dimentsion
             //init bitvector with zeros
             Bitvec.ReInitWithZeros();
 
             // set bit if it is inside sliding window
             SetBitsInsideWindow(y);
 
-            for (int x = Coords.GetSTX(); x < Coords.GetENX(); x++) { //stx, enx --- this iterates over the coordinates of the a single block over x dimentsion
-                //sliding window bounds
-                int sy = std::max(y - Coords.GetHY(), 0);
-                int sx = std::max(x - Coords.GetHX(), 0);
-                int ey = std::min(Coords.GetRangeY(), y + Coords.GetHY() + 1);
-                int ex = std::min(Coords.GetRangeX(), x + Coords.GetHX() + 1);
-
-                //size of running window
-                int window_size = (ey-sy)*(ex-sx);
-
-                int sxlr = std::max(x - Coords.GetHX() - 1, 0);
-                int exlr = std::max(x - Coords.GetHX(), 0);
-
-                int ii   = std::min(x + Coords.GetHX(), ex - 1);
-
+            for (int x = Coords.GetSTX(); x < Coords.GetENX(); x++) { // this iterates over the coordinates of the a single block over x dimentsion
                 //unset left most vertical bits inside running window
-                for (int i = sxlr; i < exlr; i++) {
-                    for (int j = sy; j < ey; j++) {
-                        int ind = sxlr + j * Coords.GetRangeX();
-                        int position = Data.GetOrdinal(ind);
-                        Bitvec.SetZero(position);
-                    }
-                }
+                UnsetLeftmostVerticalBits(x, y);
 
                 //set right most vertical bits inside running window
-                for(int j = sy; j < ey; j++) {
-                    int ind = ii + j * Coords.GetRangeX();
-                    int position = Data.GetOrdinal(ind);
-                    Bitvec.SetOne(position);
-                }
+                SetRightmostVerticalBits(x, y);
 
                 //compute median of the sliding window from the bit vector and set to result
-                const int globalIndex = Coords.ComputeGlobalIndex(x, y); // index of the pixel on image / global index
-                ComputeMedianForSlidingWindow(globalIndex, window_size);
+                const int globalIndex = Coords.ComputeGlobalIndex(x, y);     // index of the pixel on image / global index
+                const int windowSize  = Coords.GetSizeOfSlidingWindow(x, y); // current size of sliding window depending on the coordinates
+                ComputeMedianForSlidingWindow(globalIndex, windowSize);
             }
         }
     }

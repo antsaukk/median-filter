@@ -123,13 +123,12 @@ struct BlockCoordinates {
     inline int GetY1() const { return y1; }
     inline int GetX0() const { return x0; }
     inline int GetX1() const { return x1; }
-
-    inline int GetRangeX() const { return x1 - x0; }
-    inline int GetRangeY() const { return y1 - y0; }
-
     inline int GetNX() const { return NX; }
     inline int GetHY() const { return HY; }
     inline int GetHX() const { return HX; }
+
+    inline int GetRangeX() const { return x1 - x0; }
+    inline int GetRangeY() const { return y1 - y0; }
 
     inline int ComputeGlobalIndex(const int x, const int y) const {
         return x + GetX0() + (y + GetY0()) * GetNX();
@@ -251,7 +250,7 @@ public:
     inline uint64_t GetBits(const int position) const { return bitvector[position]; }
 
 private:
-    inline int ComputeShift(const int position) const { //class member or separate function? 
+    inline int ComputeShift(const int position) const {
         return DIV - position % DIV - 1;
     }
 
@@ -271,65 +270,11 @@ public:
     inline void Run() {
         Data.MapPixelsToOrdinals(Coords, inputData);
         Data.InitializeOrdinals();
-
-        for (int y = Coords.GetSTY(); y < Coords.GetENY(); y++) { //sty, eny --- this iterates over the coordinates of the a single block over y dimentsion
-                //init bitvector with zeros
-                Bitvec.ReInitWithZeros();
-
-                //set values near initial position of running window --- coordinates of the running window inside the block
-                int y_str = std::max(y - Coords.GetHY(), 0); 
-                int x_str = std::max(Coords.GetSTX() - Coords.GetHX(), 0);
-                int y_end = std::min(y + Coords.GetHY() + 1, Coords.GetRangeY());
-                int x_end = std::min(Coords.GetSTX() + Coords.GetHX() + 1, Coords.GetRangeX());
-
-                //set bit to 1 if it is inside running window
-                for (int i = y_str; i < y_end; i++) {
-                    for(int j = x_str; j < x_end; j++){
-                        int ind = j + i * Coords.GetRangeX();
-                        int position = Data.GetOrdinal(ind);
-                        Bitvec.SetOne(position);
-                    }
-                }
-
-                for (int x = Coords.GetSTX(); x < Coords.GetENX(); x++) { //stx, enx --- this iterates over the coordinates of the a single block over x dimentsion
-                    //sliding window bounds
-                    int sy = std::max(y - Coords.GetHY(), 0);
-                    int sx = std::max(x - Coords.GetHX(), 0);
-                    int ey = std::min(Coords.GetRangeY(), y + Coords.GetHY() + 1);
-                    int ex = std::min(Coords.GetRangeX(), x + Coords.GetHX() + 1);
-
-                    //size of running window
-                    int window_size = (ey-sy)*(ex-sx);
-
-                    int sxlr = std::max(x - Coords.GetHX() - 1, 0);
-                    int exlr = std::max(x - Coords.GetHX(), 0);
-                    int ii   = std::min(x + Coords.GetHX(), ex - 1);
-
-                    //unset left most vertical bits inside running window
-                    for (int i = sxlr; i < exlr; i++) {
-                        for (int j = sy; j < ey; j++) {
-                            int ind = sxlr + j * Coords.GetRangeX();
-                            int position = Data.GetOrdinal(ind);
-                            Bitvec.SetZero(position);
-                        }
-                    }
-
-                    //set right most vertical bits inside running window
-                    for(int j = sy; j < ey; j++) {
-                        int ind = ii + j * Coords.GetRangeX();
-                        int position = Data.GetOrdinal(ind);
-                        Bitvec.SetOne(position);
-                    }
-
-                    //compute median of the sliding window from the bit vector and set to result
-                    const int globalIndex = Coords.ComputeGlobalIndex(x, y); // index of the pixel on image / global index
-                    ComputeMedian(globalIndex, window_size);
-                }
-            }
+        ComputeMediansForCoordinateBlock();
     }
 
 private:
-    inline void ComputeMedian(const int globalIndex, const int window_size) {
+    inline void ComputeMedianForSlidingWindow(const int globalIndex, const int window_size) {
         if(window_size % 2 == 1)
             outputData[globalIndex] = ComputeMedianForOddSizedWindow(window_size);
         else 
@@ -349,7 +294,7 @@ private:
 
     //these two
     inline float ComputeMedianForEvenSizedWindow(const int window_size) {
-        int position1  = (window_size / 2);
+        int position1  = (window_size / 2); // optimize to multiply
         int position2  = (window_size / 2) + 1;
 
         auto indexes1  = ComputeRemainder(0, position1);
@@ -361,7 +306,7 @@ private:
         const int ord1 = ComputePixelOrder(indexes1.first, N1);
         const int ord2 = ComputePixelOrder(indexes2.first, N2);
 
-        return (Data.GetPixel(ord1) + Data.GetPixel(ord2)) / 2;
+        return (Data.GetPixel(ord1) + Data.GetPixel(ord2)) / 2; // optimize to multiply
     }
 
     inline int ComputePixelOrder(const int index, const int order) const {
@@ -375,6 +320,64 @@ private:
             d++;
         }
         return {d, remainder};
+    }
+
+    inline void ComputeMediansForCoordinateBlock() {
+        for (int y = Coords.GetSTY(); y < Coords.GetENY(); y++) { //sty, eny --- this iterates over the coordinates of the a single block over y dimentsion
+            //init bitvector with zeros
+            Bitvec.ReInitWithZeros();
+
+            //set values near initial position of running window --- coordinates of the running window inside the block
+            int y_str = std::max(y - Coords.GetHY(), 0);
+            int x_str = std::max(Coords.GetSTX() - Coords.GetHX(), 0);
+            int y_end = std::min(y + Coords.GetHY() + 1, Coords.GetRangeY());
+            int x_end = std::min(Coords.GetSTX() + Coords.GetHX() + 1, Coords.GetRangeX());
+
+            //set bit to 1 if it is inside running window
+            for (int i = y_str; i < y_end; i++) {
+                for(int j = x_str; j < x_end; j++){
+                    int ind = j + i * Coords.GetRangeX();
+                    int position = Data.GetOrdinal(ind);
+                    Bitvec.SetOne(position);
+                }
+            }
+
+            for (int x = Coords.GetSTX(); x < Coords.GetENX(); x++) { //stx, enx --- this iterates over the coordinates of the a single block over x dimentsion
+                //sliding window bounds
+                int sy = std::max(y - Coords.GetHY(), 0);
+                int sx = std::max(x - Coords.GetHX(), 0);
+                int ey = std::min(Coords.GetRangeY(), y + Coords.GetHY() + 1);
+                int ex = std::min(Coords.GetRangeX(), x + Coords.GetHX() + 1);
+
+                //size of running window
+                int window_size = (ey-sy)*(ex-sx);
+
+                int sxlr = std::max(x - Coords.GetHX() - 1, 0);
+                int exlr = std::max(x - Coords.GetHX(), 0);
+                
+                int ii   = std::min(x + Coords.GetHX(), ex - 1);
+
+                //unset left most vertical bits inside running window
+                for (int i = sxlr; i < exlr; i++) {
+                    for (int j = sy; j < ey; j++) {
+                        int ind = sxlr + j * Coords.GetRangeX();
+                        int position = Data.GetOrdinal(ind);
+                        Bitvec.SetZero(position);
+                    }
+                }
+
+                //set right most vertical bits inside running window
+                for(int j = sy; j < ey; j++) {
+                    int ind = ii + j * Coords.GetRangeX();
+                    int position = Data.GetOrdinal(ind);
+                    Bitvec.SetOne(position);
+                }
+
+                //compute median of the sliding window from the bit vector and set to result
+                const int globalIndex = Coords.ComputeGlobalIndex(x, y); // index of the pixel on image / global index
+                ComputeMedianForSlidingWindow(globalIndex, window_size);
+            }
+        }
     }
 
     const float *inputData;

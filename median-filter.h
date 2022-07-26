@@ -63,8 +63,6 @@ struct ImageSubBlock {
     inline int GetBSNX()        const { return bsnx; }
     inline int GetBSNY()        const { return bsny; }
 
-private:
-
     inline int CalculateSizeOfBlockSide() {
         return scalingFactor * std::max(kernelSizeX, kernelSizeY);
     }
@@ -76,6 +74,8 @@ private:
     inline int CalculateBlockSizeN(int N, int kernelSize, int strideSize) {
         return blockside < N ? (N - kernelSize + strideSize - 1) / strideSize : 1;
     }
+
+private:
 
     const int imageSizeX;
     const int imageSizeY;
@@ -182,7 +182,8 @@ struct BlockCoordinates {
         return std::min(x + GetHX(), GetEX(x) - 1);
     }
 
-private:
+    ///______________________
+
     inline int GetSX(const int x) const {
         return std::max(x - GetHX(), 0);           
     }
@@ -215,6 +216,7 @@ private:
         return (ix == bsnx - 1) ? GetRangeX() : GetRangeX() - hx;
     }
 
+private:
     const int y0;
     const int x0;
     const int y1;
@@ -278,7 +280,7 @@ private:
 class BitVector {
 public:
     explicit BitVector(const int blockSize) :
-    bitvector((blockSize + DIV - 1) / DIV)
+    bitvector(ComputeSizeOfBitvector(blockSize))
     {}
 
     inline void ReInitWithZeros() {
@@ -286,25 +288,29 @@ public:
             bitvector[i] = ZERO;
     }
 
-    inline void SetOne(const int position) {
+    inline void SetOne(const int position) { //testable
         const int bitix = position / DIV;
         const int shift = ComputeShift(position);
         bitvector[bitix] |= (ONE << shift);
     }
 
-    inline void SetZero(const int position) {
+    inline void SetZero(const int position) { //testable
         const int bitix = position / DIV;
         const int shift = ComputeShift(position);
         bitvector[bitix] &= ~(ONE << shift);
     }
 
-    inline uint64_t GetBits(const int position) const { return bitvector[position]; }
-
-private:
-    inline int ComputeShift(const int position) const {
+    inline int ComputeShift(const int position) const { //testable
         return DIV - position % DIV - 1;
     }
 
+    inline int ComputeSizeOfBitvector(const int blockSize) { // testable
+        return (blockSize + DIV - 1) / DIV;
+    }
+
+    inline uint64_t GetBits(const int position) const { return bitvector[position]; }
+
+private:
     std::vector<uint64_t> bitvector;
 };
 

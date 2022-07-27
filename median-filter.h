@@ -1,3 +1,5 @@
+#pragma once
+
 #include <vector>
 #include <cmath>
 #include <algorithm>
@@ -5,6 +7,12 @@
 #include <x86intrin.h>
 #include <stdint.h>
 #include <cassert>
+
+/* 
+TODO:
+1) Names
+2) ComputePixelOrder belonging?
+*/
 
 constexpr uint64_t DIV      = 64;
 constexpr uint64_t ZERO     = 0L;
@@ -14,7 +22,7 @@ constexpr int scalingFactor = 2;
 
 //returns number of 1's in the 64bit uns.integer
 inline int countbits(uint64_t bitvector) {
-    return __builtin_popcountll(bitvector); 
+    return __builtin_popcountll(bitvector);
 }
 
 //returns Nset bit under pos index
@@ -98,8 +106,6 @@ private:
 
 };
 
-// this depends on ImageSubBlock and it is bad
-// remove this dependency and init only with correct arguments
 struct BlockCoordinates {
     explicit BlockCoordinates(const ImageSubBlock& Block, const int iy, const int ix) : 
     y0(ComputeOriginCoordinates(Block.GetStrideSizeY(), iy)),
@@ -109,8 +115,8 @@ struct BlockCoordinates {
     x1(ComputeUpperCoordinates(Block.GetImageX(), x0, Block.GetStrideSizeX(), Block.GetKernelSizeX())),
 
     NX(Block.GetImageX()),
-    HX(Block.GetSWlength()), //?
-    HY(Block.GetSWheight()), //?
+    HX(Block.GetSWlength()),
+    HY(Block.GetSWheight()),
 
     sty(ComputeStartCoordY(iy, Block.GetSWheight())),
     stx(ComputeStartCoordX(ix, Block.GetSWlength())),
@@ -118,7 +124,6 @@ struct BlockCoordinates {
     enx(ComputeEndCoordX(ix, Block.GetBSNX(), Block.GetSWlength()))
     {}
 
-    // const
     inline int GetY0() const { return y0; }
     inline int GetY1() const { return y1; }
     inline int GetX0() const { return x0; }
@@ -139,7 +144,7 @@ struct BlockCoordinates {
     inline int GetENY() const { return eny; }
     inline int GetENX() const { return enx; }
 
-    // bad names and simplification? Shall it be in this class? 
+    // bad names => has to be redone
     inline int GetStartY(const int y) const {
         return std::max(y - GetHY(), 0);    
     }
@@ -182,7 +187,7 @@ struct BlockCoordinates {
         return std::min(x + GetHX(), GetEX(x) - 1);
     }
 
-    ///______________________
+private:
 
     inline int GetSX(const int x) const {
         return std::max(x - GetHX(), 0);           
@@ -216,7 +221,6 @@ struct BlockCoordinates {
         return (ix == bsnx - 1) ? GetRangeX() : GetRangeX() - hx;
     }
 
-private:
     const int y0;
     const int x0;
     const int y1;
@@ -233,6 +237,7 @@ private:
     const int enx;
 };
 
+template <typename F>
 class TransformedData {
 public:
     explicit TransformedData(const int blocksize) :
@@ -241,15 +246,14 @@ public:
     localIndex(0)
     {}
 
-    inline float GetPixel(const int index) const { return block_pixels[index].first; }
+    inline F GetPixel(const int index) const { return block_pixels[index].first; }
     inline int GetOrdinal(const int index) const { return ordinals[index]; }
 
     inline void SetOrdinals(const int value, const int index) {
         ordinals[index] = value;
     }
 
-    // also remove this dependency on coords
-    inline void MapPixelsToOrdinals(const BlockCoordinates& coords, const float *in) {
+    inline void MapPixelsToOrdinals(const BlockCoordinates& coords, const F *in) {
         for (int y = 0; y < coords.GetRangeY(); y++) {
             for (int x = 0; x < coords.GetRangeX(); x++) {
                 const int globalIndex = coords.ComputeGlobalIndex(x, y);
@@ -262,7 +266,6 @@ public:
     inline void InitializeOrdinals() {
         std::sort(block_pixels.begin(), block_pixels.begin() + localIndex);
 
-        // compute ordinals
         for (int i = 0; i < localIndex; i++) {
             ordinals[block_pixels[i].second] = i;
         }
@@ -271,7 +274,7 @@ public:
 private:
     inline void IncreaseLocalIndex() { localIndex++; }
     
-    std::vector<std::pair<float, int>> block_pixels;
+    std::vector<std::pair<F, int>> block_pixels;
     std::vector<int> ordinals;
 
     int localIndex;
@@ -288,23 +291,25 @@ public:
             bitvector[i] = ZERO;
     }
 
-    inline void SetOne(const int position) {
-        const int bitix = position / DIV;
-        const int shift = ComputeShift(position);
+    inline void SetBit(const int position) {
+        const int bitix  = position / DIV;
+        const int shift  = ComputeShift(position);
         bitvector[bitix] |= (ONE << shift);
     }
 
-    inline void SetZero(const int position) {
-        const int bitix = position / DIV;
-        const int shift = ComputeShift(position);
+    inline void UnsetBit(const int position) {
+        const int bitix  = position / DIV;
+        const int shift  = ComputeShift(position);
         bitvector[bitix] &= ~(ONE << shift);
     }
 
-    inline int ComputeSizeOfBitvector(const int blockSize) {
+    inline int ComputeSizeOfBitvector(const int blockSize) const {
         return (blockSize + DIV - 1) / DIV;
     }
 
-    inline uint64_t GetBits(const int position) const { return bitvector[position]; }
+    inline uint64_t GetBits(const int position) const { 
+        return bitvector[position];
+    }
 
 private:
     inline int ComputeShift(const int position) const {
@@ -314,9 +319,10 @@ private:
     std::vector<uint64_t> bitvector;
 };
 
+template <typename F>
 class MedianFilter {
 public:
-    explicit MedianFilter(const float *in, float *out, const ImageSubBlock& Block, const int iy, const int ix) :
+    explicit MedianFilter(const F *in, F *out, const ImageSubBlock& Block, const int iy, const int ix) :
     inputData(in),
     outputData(out),
     Coords(Block, iy, ix),
@@ -324,7 +330,7 @@ public:
     Bitvec(Coords.GetRangeX() * Coords.GetRangeY())
     {}
 
-    inline void Run() {
+    inline void ExecuteFiltering() {
         Data.MapPixelsToOrdinals(Coords, inputData);
         Data.InitializeOrdinals();
         ComputeMediansForCoordinateBlock();
@@ -346,7 +352,7 @@ private:
         return windowSize * 0.5;
     }
 
-    inline float ComputeMedianForOddSizedWindow(const int position) {
+    inline F ComputeMedianForOddSizedWindow(const int position) const {
         const auto indexes  = ComputeRemainder(0, position);
         const int N         = std::abs(indexes.second);
         const int ord       = ComputePixelOrder(indexes.first, N);
@@ -354,7 +360,7 @@ private:
         return Data.GetPixel(ord);
     }
 
-    inline float ComputeMedianForEvenSizedWindow(const int position1, const int position2) {
+    inline F ComputeMedianForEvenSizedWindow(const int position1, const int position2) const { 
         return (ComputeMedianForOddSizedWindow(position1) + ComputeMedianForOddSizedWindow(position2)) * 0.5;
     }
 
@@ -362,7 +368,7 @@ private:
         return (index - 1) * DIV + (DIV - getNthBit(order, Bitvec.GetBits(index - 1))) - 1;
     }
 
-    inline std::pair<int, int> ComputeRemainder(int d, int remainder) {
+    inline std::pair<int, int> ComputeRemainder(int d, int remainder) const {
         while (remainder > 0) {
             int bb = countbits(Bitvec.GetBits(d));
             remainder -= bb;
@@ -371,12 +377,16 @@ private:
         return {d, remainder};
     }
 
+    inline int GetLinearizedIndex(const int y, const int x) const {
+        return x + y * Coords.GetRangeX();
+    }
+
     inline void SetBitsInsideWindow(const int y) {
         for (int i = Coords.GetStartY(y); i < Coords.GetEndY(y); i++) {
             for(int j = Coords.GetStartX(); j < Coords.GetEndX(); j++){
-                int ind = j + i * Coords.GetRangeX(); // function? 
-                int position = Data.GetOrdinal(ind);
-                Bitvec.SetOne(position);
+                const int index    = GetLinearizedIndex(i, j);
+                const int position = Data.GetOrdinal(index);
+                Bitvec.SetBit(position);
             }
         }
     }
@@ -387,9 +397,9 @@ private:
 
         for (int i = leftStart; i < leftEnd; i++) {
             for (int j = Coords.GetSY(y); j < Coords.GetEY(y); j++) {
-                int ind = leftStart + j * Coords.GetRangeX();
-                int position = Data.GetOrdinal(ind);
-                Bitvec.SetZero(position);
+                const int index    = GetLinearizedIndex(j, leftStart);
+                const int position = Data.GetOrdinal(index);
+                Bitvec.UnsetBit(position);
             }
         }
     }
@@ -398,9 +408,9 @@ private:
         const int offset = Coords.GetOffsetOfTheRightmostVerticalBlock(x);
 
         for(int j = Coords.GetSY(y); j < Coords.GetEY(y); j++) {
-            int ind = offset + j * Coords.GetRangeX();
-            int position = Data.GetOrdinal(ind);
-            Bitvec.SetOne(position);
+            const int index    = GetLinearizedIndex(j, offset);
+            const int position = Data.GetOrdinal(index);
+            Bitvec.SetBit(position);
         }
     }
 
@@ -420,11 +430,11 @@ private:
         }
     }
 
-    const float *inputData;
-    float *outputData;
+    const F *inputData;
+    F *outputData;
 
     BlockCoordinates Coords;
-    TransformedData Data;
+    TransformedData<F> Data;
     BitVector Bitvec;
 };
 
@@ -434,8 +444,8 @@ private:
 (in)     pointer to the data
 (out)    pointer to median-fitlered data
 */
-void mf(int ny, int nx, int hy, int hx, const float *in, float *out) {
-
+template <typename F>
+void mf(int ny, int nx, int hy, int hx, const F *in, F *out) {
     // 1 Partition the image into blocks
     ImageSubBlock Block(nx, ny, hx, hy);
 
@@ -444,8 +454,11 @@ void mf(int ny, int nx, int hy, int hx, const float *in, float *out) {
     #pragma omp parallel for schedule(dynamic, 1)
     for(int iy = 0; iy < Block.GetBSNY(); iy++) {
         for (int ix = 0; ix < Block.GetBSNX(); ix++) {
-            MedianFilter Mf(in, out, Block, iy, ix);
-            Mf.Run();
+            MedianFilter<F> Mf(in, out, Block, iy, ix);
+            Mf.ExecuteFiltering();
         }
     }
 }
+
+template void mf<float>(int ny, int nx, int hy, int hx, const float *in, float *out);
+template void mf<double>(int ny, int nx, int hy, int hx, const double *in, double *out);

@@ -288,29 +288,29 @@ public:
             bitvector[i] = ZERO;
     }
 
-    inline void SetOne(const int position) { //testable
+    inline void SetOne(const int position) {
         const int bitix = position / DIV;
         const int shift = ComputeShift(position);
         bitvector[bitix] |= (ONE << shift);
     }
 
-    inline void SetZero(const int position) { //testable
+    inline void SetZero(const int position) {
         const int bitix = position / DIV;
         const int shift = ComputeShift(position);
         bitvector[bitix] &= ~(ONE << shift);
     }
 
-    inline int ComputeShift(const int position) const { //testable
-        return DIV - position % DIV - 1;
-    }
-
-    inline int ComputeSizeOfBitvector(const int blockSize) { // testable
+    inline int ComputeSizeOfBitvector(const int blockSize) {
         return (blockSize + DIV - 1) / DIV;
     }
 
     inline uint64_t GetBits(const int position) const { return bitvector[position]; }
 
 private:
+    inline int ComputeShift(const int position) const {
+        return DIV - position % DIV - 1;
+    }
+
     std::vector<uint64_t> bitvector;
 };
 
@@ -332,45 +332,37 @@ public:
 
 private:
     inline void ComputeMedianForSlidingWindow(const int globalIndex, const int windowSize) {
-        if(windowSize % 2 == 1)
-            outputData[globalIndex] = ComputeMedianForOddSizedWindow(windowSize);
-        else 
-            outputData[globalIndex] = ComputeMedianForEvenSizedWindow(windowSize);
+        if(windowSize % 2 == 1) {
+            const int position      = ComputeMedianPosition(windowSize) + 1;
+            outputData[globalIndex] = ComputeMedianForOddSizedWindow(position);
+        } else {
+            const int position1     = ComputeMedianPosition(windowSize);
+            const int position2     = ComputeMedianPosition(windowSize) + 1;
+            outputData[globalIndex] = ComputeMedianForEvenSizedWindow(position1, position2);
+        }
     }
 
-    // merge these two
-    inline float ComputeMedianForOddSizedWindow(const int windowSize) {
-        int position  = windowSize / 2 + 1;
-        auto indexes  = ComputeRemainder(0, position);
+    inline int ComputeMedianPosition(const int windowSize) const {
+        return windowSize * 0.5;
+    }
 
-        const int N   = std::abs(indexes.second);
-        const int ord = ComputePixelOrder(indexes.first, N);
+    inline float ComputeMedianForOddSizedWindow(const int position) {
+        const auto indexes  = ComputeRemainder(0, position);
+        const int N         = std::abs(indexes.second);
+        const int ord       = ComputePixelOrder(indexes.first, N);
 
         return Data.GetPixel(ord);
     }
 
-    //these two
-    inline float ComputeMedianForEvenSizedWindow(const int windowSize) {
-        int position1  = (windowSize / 2); // optimize to multiply
-        int position2  = (windowSize / 2) + 1;
-
-        auto indexes1  = ComputeRemainder(0, position1);
-        auto indexes2  = ComputeRemainder(0, position2);
-
-        const int N1   = std::abs(indexes1.second);
-        const int N2   = std::abs(indexes2.second);
-
-        const int ord1 = ComputePixelOrder(indexes1.first, N1);
-        const int ord2 = ComputePixelOrder(indexes2.first, N2);
-
-        return (Data.GetPixel(ord1) + Data.GetPixel(ord2)) / 2; // optimize to multiply
+    inline float ComputeMedianForEvenSizedWindow(const int position1, const int position2) {
+        return (ComputeMedianForOddSizedWindow(position1) + ComputeMedianForOddSizedWindow(position2)) * 0.5;
     }
 
     inline int ComputePixelOrder(const int index, const int order) const {
         return (index - 1) * DIV + (DIV - getNthBit(order, Bitvec.GetBits(index - 1))) - 1;
     }
 
-    inline std::pair<int, int> ComputeRemainder(int d, int remainder) { //bitvec function? d not as a parameter
+    inline std::pair<int, int> ComputeRemainder(int d, int remainder) {
         while (remainder > 0) {
             int bb = countbits(Bitvec.GetBits(d));
             remainder -= bb;
@@ -382,7 +374,7 @@ private:
     inline void SetBitsInsideWindow(const int y) {
         for (int i = Coords.GetStartY(y); i < Coords.GetEndY(y); i++) {
             for(int j = Coords.GetStartX(); j < Coords.GetEndX(); j++){
-                int ind = j + i * Coords.GetRangeX();
+                int ind = j + i * Coords.GetRangeX(); // function? 
                 int position = Data.GetOrdinal(ind);
                 Bitvec.SetOne(position);
             }
@@ -414,22 +406,15 @@ private:
 
     inline void ComputeMediansForCoordinateBlock() {
         for (int y = Coords.GetSTY(); y < Coords.GetENY(); y++) { // iterates over the coordinates of the a single block over y dimentsion
-            //init bitvector with zeros
             Bitvec.ReInitWithZeros();
-
-            // set bit if it is inside sliding window
             SetBitsInsideWindow(y);
 
-            for (int x = Coords.GetSTX(); x < Coords.GetENX(); x++) { // this iterates over the coordinates of the a single block over x dimentsion
-                //unset left most vertical bits inside running window
+            for (int x = Coords.GetSTX(); x < Coords.GetENX(); x++) { // this iterates over the coordinates of the a single block over x dimentsio
                 UnsetLeftmostVerticalBits(x, y);
-
-                //set right most vertical bits inside running window
                 SetRightmostVerticalBits(x, y);
 
-                //compute median of the sliding window from the bit vector and set to result
-                const int globalIndex = Coords.ComputeGlobalIndex(x, y);     // index of the pixel on image / global index
-                const int windowSize  = Coords.GetSizeOfSlidingWindow(x, y); // current size of sliding window depending on the coordinates
+                const int globalIndex = Coords.ComputeGlobalIndex(x, y);
+                const int windowSize  = Coords.GetSizeOfSlidingWindow(x, y);
                 ComputeMedianForSlidingWindow(globalIndex, windowSize);
             }
         }

@@ -446,20 +446,6 @@ private:
 */
 template <typename F>
 void mf(int ny, int nx, int hy, int hx, const F *in, F *out) {
-
-    std::cout << ny << "<-ny\n";
-    std::cout << nx << "<-nx\n";
-    std::cout << hy << "<-hy\n";
-    std::cout << hx << "<-hx\n";
-
-    std::cout << "\nINPUT:\n";
-    for (int i = 0; i < ny; i++) {
-        for (int j = 0; j < nx; j++) {
-            std::cout << in[j + i * nx] << ", ";
-        }
-        std::cout << "\n";
-    }
-
     // 1 Partition the image into blocks
     ImageSubBlock Block(nx, ny, hx, hy);
 
@@ -471,14 +457,6 @@ void mf(int ny, int nx, int hy, int hx, const F *in, F *out) {
             MedianFilter<F> Mf(in, out, Block, iy, ix);
             Mf.ExecuteFiltering();
         }
-    }
-
-    std::cout << "\nOUTPUT:\n";
-    for (int i = 0; i < ny; i++) {
-        for (int j = 0; j < nx; j++) {
-            std::cout << out[j + i * nx] << ", ";
-        }
-        std::cout << "\n";
     }
 }
 

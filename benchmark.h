@@ -7,12 +7,12 @@
 #include <vector>
 
 void Benchmark(const int ny,
-			const int nx,
-			const int hy,
-			const int hx,
-			const int lower,
-			const int upper,
-			const std::string& message) {
+	const int nx,
+	const int hy,
+	const int hx,
+	const int lower,
+	const int upper,
+	const std::string& message) {
 	std::vector<float> input(nx*ny);
 	std::vector<float> output(nx*ny);
 

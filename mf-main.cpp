@@ -27,19 +27,12 @@ void IntegrationTests() {
 
 void Benchmarks() {
 	Benchmark(500, 500, 10, 10, 1, 10, "Benchmark 500x500 array with 10x10 sliding window:");
-
 	Benchmark(1500, 1500, 10, 10, 1, 10, "Benchmark 1500x1500 array with 10x10 sliding window:");
-
 	Benchmark(4000, 4000, 10, 10, 1, 10, "Benchmark 4000x4000 array with 10x10 sliding window:");
-
 	Benchmark(4000, 4000, 50, 50, 1, 10, "Benchmark 4000x4000 array with 50x50 sliding window:");
-
 	Benchmark(500, 500, 21, 21, 1, 10, "Benchmark 500x500 array with 21x21 sliding window:");
-
 	Benchmark(1500, 1500, 21, 21, 1, 10, "Benchmark 1500x1500 array with 21x21 sliding window:");
-
 	Benchmark(4000, 4000, 21, 21, 1, 10, "Benchmark 4000x4000 array with 21x21 sliding window:");
-
 	Benchmark(4000, 4000, 101, 101, 1, 10, "Benchmark 4000x4000 array with 101x101 sliding window:");
 }
 

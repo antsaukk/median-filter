@@ -4,15 +4,13 @@
 
 #include "median-filter.h"
 
-using namespace std;
-
 void TestResult1() {
 	const int ny = 5;
 	const int nx = 5;
 	const int hy = 1;
 	const int hx = 1;
 
-	const vector<float> expectedResult = {
+	const std::vector<float> expectedResult = {
 		0, 	 0, 0.5, 0, 0, 
 		0,   0, 1, 	 0, 0, 
 		0.5, 1, 1, 	 1, 0.5, 
@@ -20,7 +18,7 @@ void TestResult1() {
 		0, 	 0, 0.5, 0, 0
 	};
 
-	const vector<float> inputData = {
+	const std::vector<float> inputData = {
 		0, 0, 0, 0, 0,
 		0, 1, 1, 1, 0,
 		0, 1, 1, 1, 0,
@@ -28,7 +26,7 @@ void TestResult1() {
 		0, 0, 0, 0, 0
 	};
 
-	vector<float> outputData(ny*nx);
+	std::vector<float> outputData(ny*nx);
 
 	mf<float>(ny, nx, hy, hx, inputData.data(), outputData.data());
 
@@ -41,7 +39,7 @@ void TestResult2() {
 	const int hy = 1;
 	const int hx = 1;
 
-	const vector<float> expectedResult = {
+	const std::vector<float> expectedResult = {
 		0.86405,  0.860258, 0.733684, 0.470263, 0.470263, 
 		0.680972, 0.547221, 0.547221, 0.308167, 0.427524, 
 		0.935441, 0.913376, 0.632359, 0.546881, 0.58962, 
@@ -49,7 +47,7 @@ void TestResult2() {
 		0.841673, 0.96405, 0.967741, 0.969144, 0.966292
 	};
 
-	const vector<float> inputData = {
+	const std::vector<float> inputData = {
 		0.814724,  0.135477, 0.905792, 0.835009, 0.126987, 
 		0.968868,  0.913376, 0.221034, 0.632359, 0.308167, 
 		0.0975404, 0.547221, 0.278498, 0.188382, 0.546881, 
@@ -57,7 +55,7 @@ void TestResult2() {
 		0.157613,  0.725839, 0.970593, 0.98111, 0.957167
 	};
 
-	vector<float> outputData(ny*nx);
+	std::vector<float> outputData(ny*nx);
 
 	mf<float>(ny, nx, hy, hx, inputData.data(), outputData.data());
 
@@ -70,7 +68,7 @@ void TestResult3() {
 	const int hy = 1;
 	const int hx = 1;
 
-	const vector<float> expectedResult = {
+	const std::vector<float> expectedResult = {
 		0.86405,  0.860258, 0.733684, 0.470263, 0.470263, 
 		0.680972, 0.547221, 0.547221, 0.308167, 0.427524, 
 		0.935441, 0.913376, 0.632359, 0.546881, 0.58962, 
@@ -80,7 +78,7 @@ void TestResult3() {
 		0.125874, 0.281824, 0.453568, 0.609934, 0.548655
 	};
 
-	const vector<float> inputData = {
+	const std::vector<float> inputData = {
 		0.814724,  0.135477,   0.905792, 0.835009, 0.126987, 
 		0.968868,  0.913376,   0.221034, 0.632359, 0.308167, 
 		0.0975404, 0.547221,   0.278498, 0.188382, 0.546881, 
@@ -90,7 +88,7 @@ void TestResult3() {
 		0.141886,  0.00478345, 0.421761, 0.112464, 0.915735
 	};
 
-	vector<float> outputData(ny*nx);
+	std::vector<float> outputData(ny*nx);
 
 	mf<float>(ny, nx, hy, hx, inputData.data(), outputData.data());
 
@@ -103,7 +101,7 @@ void TestResult4() {
 	const int hy = 1;
 	const int hx = 3;
 
-	const vector<float> expectedResult = {
+	const std::vector<float> expectedResult = {
 		0.824866, 0.723541, 0.723541, 0.723541, 0.470263, 
 		0.58979,  0.546881, 0.546881, 0.546881, 0.427524, 
 		0.772868, 0.632359, 0.632359, 0.632359, 0.58979, 
@@ -111,7 +109,7 @@ void TestResult4() {
 		0.967741, 0.966292, 0.966292, 0.966292, 0.966292
 	};
 
-	const vector<float> inputData = {
+	const std::vector<float> inputData = {
 		0.814724,  0.135477,   0.905792, 0.835009, 0.126987, 
 		0.968868,  0.913376,   0.221034, 0.632359, 0.308167, 
 		0.0975404, 0.547221,   0.278498, 0.188382, 0.546881, 
@@ -119,7 +117,7 @@ void TestResult4() {
 		0.157613,  0.725839,   0.970593, 0.98111,  0.957167
 	};
 
-	vector<float> outputData(ny*nx);
+	std::vector<float> outputData(ny*nx);
 
 	mf<float>(ny, nx, hy, hx, inputData.data(), outputData.data());
 
@@ -132,7 +130,7 @@ void TestResult5() {
 	const int hy = 3;
 	const int hx = 1;
 
-	const vector<float> expectedResult = {
+	const std::vector<float> expectedResult = {
 		0.86405,  0.860258, 0.733684, 0.58962,  0.58962, 
 		0.770281, 0.814724, 0.835009, 0.835009, 0.733684, 
 		0.770281, 0.814724, 0.835009, 0.835009, 0.733684, 
@@ -141,7 +139,7 @@ void TestResult5() {
 
 	};
 
-	const vector<float> inputData = {
+	const std::vector<float> inputData = {
 		0.814724,  0.135477,   0.905792, 0.835009, 0.126987, 
 		0.968868,  0.913376,   0.221034, 0.632359, 0.308167, 
 		0.0975404, 0.547221,   0.278498, 0.188382, 0.546881, 
@@ -149,7 +147,7 @@ void TestResult5() {
 		0.157613,  0.725839,   0.970593, 0.98111,  0.957167
 	};
 
-	vector<float> outputData(ny*nx);
+	std::vector<float> outputData(ny*nx);
 
 	mf<float>(ny, nx, hy, hx, inputData.data(), outputData.data());
 
@@ -162,7 +160,7 @@ void TestResult6() {
 	const int hy = 1;
 	const int hx = 3;
 
-	const vector<float> expectedResult = {
+	const std::vector<float> expectedResult = {
 		0.470263, 0.427694, 0.427694, 0.427694, 0.427694, 0.427694, 0.412859,
 		0.723541, 0.632359, 0.723541, 0.632359, 0.733684, 0.835009, 0.691115,
 		0.841503, 0.725839, 0.679099, 0.632359, 0.715232, 0.547221, 0.516298,
@@ -174,7 +172,7 @@ void TestResult6() {
 
 	};
 
-	const vector<float> inputData = {
+	const std::vector<float> inputData = {
 		0.814724,  0.135477, 0.905792, 0.835009,   0.126987, 0.968868, 0.913376,
 		0.221034,  0.632359, 0.308167, 0.0975404,  0.547221, 0.278498, 0.188382, 
 		0.546881,  0.992881, 0.957507, 0.996461,   0.964889, 0.967695, 0.157613,
@@ -184,7 +182,7 @@ void TestResult6() {
 		0.0357116, 0.361294, 0.849129, 0.211924,   0.933993, 0.68136,  0.678735 
 	};
 
-	vector<float> outputData(ny*nx);
+	std::vector<float> outputData(ny*nx);
 
 	mf<float>(ny, nx, hy, hx, inputData.data(), outputData.data());
 
@@ -197,7 +195,7 @@ void TestResult7() {
 	const int hy = 3;
 	const int hx = 1;
 
-	const vector<float> expectedResult = {
+	const std::vector<float> expectedResult = {
 		0.679099, 0.770281, 0.931479, 0.8704,   0.691115, 0.516298, 0.641741, 
 		0.679099, 0.725839, 0.835009, 0.547221, 0.485376, 0.485376, 0.641741, 
 		0.682801, 0.759023, 0.85672,  0.691115, 0.525442, 0.525442, 0.726835, 
@@ -209,7 +207,7 @@ void TestResult7() {
 
 	};
 
-	const vector<float> inputData = {
+	const std::vector<float> inputData = {
 		0.814724,  0.135477, 0.905792, 0.835009,   0.126987, 0.968868, 0.913376, 
 		0.221034,  0.632359, 0.308167, 0.0975404,  0.547221, 0.278498, 0.188382, 
 		0.546881,  0.992881, 0.957507, 0.996461,   0.964889, 0.967695, 0.157613, 
@@ -219,7 +217,7 @@ void TestResult7() {
 		0.0357116, 0.361294, 0.849129, 0.211924,   0.933993, 0.68136,  0.678735
 	};
 
-	vector<float> outputData(ny*nx);
+	std::vector<float> outputData(ny*nx);
 
 	mf<float>(ny, nx, hy, hx, inputData.data(), outputData.data());
 
@@ -232,7 +230,7 @@ void TestResult8() {
 	const int hy = 3;
 	const int hx = 3;
 
-	const vector<float> expectedResult = {
+	const std::vector<float> expectedResult = {
 		0.824866, 0.770281, 0.770281, 0.761972, 0.816557, 0.816557, 0.672663, 
 		0.76306,  0.632359, 0.58979,  0.632359, 0.58979,  0.547221, 0.516298, 
 		0.76306,  0.632359, 0.58979,  0.632359, 0.58979,  0.547221, 0.516298, 
@@ -240,7 +238,7 @@ void TestResult8() {
 		0.679099, 0.58979,  0.547051, 0.547051, 0.516298, 0.453568, 0.453568
 	};
 
-	const vector<float> inputData = {
+	const std::vector<float> inputData = {
 		0.814724, 0.135477, 0.905792, 0.835009,   0.126987, 0.968868, 0.913376, 
 		0.221034, 0.632359, 0.308167, 0.0975404,  0.547221, 0.278498, 0.188382, 
 		0.546881, 0.992881, 0.957507, 0.996461,   0.964889, 0.967695, 0.157613, 
@@ -248,7 +246,7 @@ void TestResult8() {
 		0.80028,  0.297029, 0.141886, 0.00478345, 0.421761, 0.112464, 0.915735
 	};
 
-	vector<float> outputData(ny*nx);
+	std::vector<float> outputData(ny*nx);
 
 	mf<float>(ny, nx, hy, hx, inputData.data(), outputData.data());
 
@@ -261,7 +259,7 @@ void TestResult9() {
 	const int hy = 3;
 	const int hx = 3;
 
-	const vector<float> expectedResult = {
+	const std::vector<float> expectedResult = {
 		0.824866, 0.723541, 0.723541, 0.723541, 0.58979, 
 		0.824866, 0.814724, 0.814724, 0.814724, 0.780424, 
 		0.799193, 0.761972, 0.761972, 0.761972, 0.761972, 
@@ -272,7 +270,7 @@ void TestResult9() {
 
 	};
 
-	const vector<float> inputData = {
+	const std::vector<float> inputData = {
 		0.814724,  0.135477,   0.905792, 0.835009, 0.126987, 
 		0.968868,  0.913376,   0.221034, 0.632359, 0.308167, 
 		0.0975404, 0.547221,   0.278498, 0.188382, 0.546881, 
@@ -282,7 +280,7 @@ void TestResult9() {
 		0.141886,  0.00478345, 0.421761, 0.112464, 0.915735
 	};
 
-	vector<float> outputData(ny*nx);
+	std::vector<float> outputData(ny*nx);
 
 	mf<float>(ny, nx, hy, hx, inputData.data(), outputData.data());
 
@@ -295,7 +293,7 @@ void TestResult10() {
 	const int hy = 7;
 	const int hx = 3;
 
-	const vector<float> expectedResult = {
+	const std::vector<float> expectedResult = {
 		0.824866, 0.814724, 0.814724, 0.814724, 0.780424, 
 		0.824866, 0.814724, 0.814724, 0.814724, 0.780424, 
 		0.824866, 0.814724, 0.814724, 0.814724, 0.780424, 
@@ -303,7 +301,7 @@ void TestResult10() {
 		0.824866, 0.814724, 0.814724, 0.814724, 0.780424
 	};
 
-	const vector<float> inputData = {
+	const std::vector<float> inputData = {
 		0.814724,  0.135477, 0.905792, 0.835009, 0.126987, 
 		0.968868,  0.913376, 0.221034, 0.632359, 0.308167, 
 		0.0975404, 0.547221, 0.278498, 0.188382, 0.546881, 
@@ -311,7 +309,7 @@ void TestResult10() {
 		0.157613,  0.725839, 0.970593, 0.98111,  0.957167
 	};
 
-	vector<float> outputData(ny*nx);
+	std::vector<float> outputData(ny*nx);
 
 	mf<float>(ny, nx, hy, hx, inputData.data(), outputData.data());
 
@@ -324,7 +322,7 @@ void TestResult11() {
 	const int hy = 3;
 	const int hx = 7;
 
-	const vector<float> expectedResult = {
+	const std::vector<float> expectedResult = {
 		0.723541, 0.723541, 0.723541, 0.723541, 0.723541, 
 		0.814724, 0.814724, 0.814724, 0.814724, 0.814724, 
 		0.814724, 0.814724, 0.814724, 0.814724, 0.814724, 
@@ -332,7 +330,7 @@ void TestResult11() {
 		0.819607, 0.819607, 0.819607, 0.819607, 0.819607
 	};
 
-	const vector<float> inputData = {
+	const std::vector<float> inputData = {
 		0.814724,  0.135477, 0.905792, 0.835009, 0.126987, 
 		0.968868,  0.913376, 0.221034, 0.632359, 0.308167, 
 		0.0975404, 0.547221, 0.278498, 0.188382, 0.546881, 
@@ -340,7 +338,7 @@ void TestResult11() {
 		0.157613,  0.725839, 0.970593, 0.98111, 0.957167
 	};
 
-	vector<float> outputData(ny*nx);
+	std::vector<float> outputData(ny*nx);
 
 	mf<float>(ny, nx, hy, hx, inputData.data(), outputData.data());
 
@@ -353,7 +351,7 @@ void TestResult12() {
 	const int hy = 17;
 	const int hx = 1;
 
-	const vector<float> expectedResult = {
+	const std::vector<float> expectedResult = {
 		0.770281, 0.814724, 0.835009, 0.835009, 0.733684, 
 		0.770281, 0.814724, 0.835009, 0.835009, 0.733684, 
 		0.770281, 0.814724, 0.835009, 0.835009, 0.733684, 
@@ -361,7 +359,7 @@ void TestResult12() {
 		0.770281, 0.814724, 0.835009, 0.835009, 0.733684
 	};
 
-	const vector<float> inputData = {
+	const std::vector<float> inputData = {
 		0.814724,  0.135477, 0.905792, 0.835009, 0.126987, 
 		0.968868,  0.913376, 0.221034, 0.632359, 0.308167, 
 		0.0975404, 0.547221, 0.278498, 0.188382, 0.546881, 
@@ -369,7 +367,7 @@ void TestResult12() {
 		0.157613,  0.725839, 0.970593, 0.98111,  0.957167
 	};
 
-	vector<float> outputData(ny*nx);
+	std::vector<float> outputData(ny*nx);
 
 	mf<float>(ny, nx, hy, hx, inputData.data(), outputData.data());
 
@@ -382,7 +380,7 @@ void TestResult13() {
 	const int hy = 1;
 	const int hx = 17;
 
-	const vector<float> expectedResult = {
+	const std::vector<float> expectedResult = {
 		0.427694, 0.427694, 0.427694, 0.427694, 0.427694, 0.427694, 0.427694, 
 		0.632359, 0.632359, 0.632359, 0.632359, 0.632359, 0.632359, 0.632359, 
 		0.632359, 0.632359, 0.632359, 0.632359, 0.632359, 0.632359, 0.632359, 
@@ -390,7 +388,7 @@ void TestResult13() {
 		0.605607, 0.605607, 0.605607, 0.605607, 0.605607, 0.605607, 0.605607
 	};
 
-	const vector<float> inputData = {
+	const std::vector<float> inputData = {
 		0.814724, 0.135477, 0.905792, 0.835009,   0.126987, 0.968868, 0.913376, 
 		0.221034, 0.632359, 0.308167, 0.0975404,  0.547221, 0.278498, 0.188382, 
 		0.546881, 0.992881, 0.957507, 0.996461,   0.964889, 0.967695, 0.157613, 
@@ -398,7 +396,7 @@ void TestResult13() {
 		0.80028,  0.297029, 0.141886, 0.00478345, 0.421761, 0.112464, 0.91573
 	};
 
-	vector<float> outputData(ny*nx);
+	std::vector<float> outputData(ny*nx);
 
 	mf<float>(ny, nx, hy, hx, inputData.data(), outputData.data());
 
@@ -411,7 +409,7 @@ void TestResult14() {
 	const int hy = 3;
 	const int hx = 7;
 
-	const vector<float> expectedResult = {
+	const std::vector<float> expectedResult = {
 		0.761972, 0.761972, 0.761972, 0.761972, 0.761972, 0.761972, 0.761972, 
 		0.632359, 0.632359, 0.632359, 0.632359, 0.632359, 0.632359, 0.632359, 
 		0.632359, 0.632359, 0.632359, 0.632359, 0.632359, 0.632359, 0.632359, 
@@ -419,7 +417,7 @@ void TestResult14() {
 		0.547051, 0.547051, 0.547051, 0.547051, 0.547051, 0.547051, 0.547051
 	};
 
-	const vector<float> inputData = {
+	const std::vector<float> inputData = {
 		0.814724, 0.135477, 0.905792, 0.835009,   0.126987, 0.968868, 0.913376, 
 		0.221034, 0.632359, 0.308167, 0.0975404,  0.547221, 0.278498, 0.188382, 
 		0.546881, 0.992881, 0.957507, 0.996461,   0.964889, 0.967695, 0.157613, 
@@ -427,7 +425,7 @@ void TestResult14() {
 		0.80028,  0.297029, 0.141886, 0.00478345, 0.421761, 0.112464, 0.915735
 	};
 
-	vector<float> outputData(ny*nx);
+	std::vector<float> outputData(ny*nx);
 
 	mf<float>(ny, nx, hy, hx, inputData.data(), outputData.data());
 
@@ -440,7 +438,7 @@ void TestResult15() {
 	const int hy = 7;
 	const int hx = 3;
 
-	const vector<float> expectedResult = {
+	const std::vector<float> expectedResult = {
 		0.76306, 0.632359, 0.58979, 0.632359, 0.58979, 0.547221, 0.516298, 
 		0.76306, 0.632359, 0.58979, 0.632359, 0.58979, 0.547221, 0.516298, 
 		0.76306, 0.632359, 0.58979, 0.632359, 0.58979, 0.547221, 0.516298, 
@@ -448,7 +446,7 @@ void TestResult15() {
 		0.76306, 0.632359, 0.58979, 0.632359, 0.58979, 0.547221, 0.516298
 	};
 
-	const vector<float> inputData = {
+	const std::vector<float> inputData = {
 		0.814724, 0.135477, 0.905792, 0.835009,   0.126987, 0.968868, 0.913376, 
 		0.221034, 0.632359, 0.308167, 0.0975404,  0.547221, 0.278498, 0.188382, 
 		0.546881, 0.992881, 0.957507, 0.996461,   0.964889, 0.967695, 0.157613, 
@@ -456,7 +454,7 @@ void TestResult15() {
 		0.80028,  0.297029, 0.141886, 0.00478345, 0.421761, 0.112464, 0.915735
 	};
 
-	vector<float> outputData(ny*nx);
+	std::vector<float> outputData(ny*nx);
 
 	mf<float>(ny, nx, hy, hx, inputData.data(), outputData.data());
 

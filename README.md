@@ -8,12 +8,13 @@
 - utilizes "bitvector" compressed storage scheme, which allows to keep most of the data in closest caches
 - does not need to compute sliding window for every pixel due to pixel-to-ordinal mapping and effective resetting of only 2k+1 bits inside the sliding window
 
-### Execution: 
+### Execution:
+On Linux Fedora or Ubuntu, execute the following scripts:
 ```
 ./build/compile.sh
 ./build/execute.sh
 ```
-
+Other platforms are not considered at the moment.
 ### Potential speed-up improvements: 
 - Use of vector registers
 - Implementation of vertical sliding-window scanning scheme, instead of horizontal, may improve memory access pattern

@@ -20,5 +20,7 @@
 - Median does not have to be recalculated everytime sliding window moves to the next pixel
 
 ### Todo: 
-- Add behcmark results
-- Add test results
+- Add more tests + tests with libasan
+- Split execution of tests and benchmarks
+- Implement better refactoring and renaming
+- Split to separate source and header files
